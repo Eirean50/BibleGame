@@ -6,8 +6,15 @@ import 'package:itlective/level1.dart';
 import 'package:itlective/sword_sound.dart';
 
 class _SilentSound extends SwordSound {
+  int plays = 0;
+  int stops = 0;
+  bool disposed = false;
   @override
-  Future<void> play() async {}
+  Future<void> play() async => plays++;
+  @override
+  Future<void> stop() async => stops++;
+  @override
+  Future<void> dispose() async => disposed = true;
 }
 
 class _CombatGame extends FlameGame with HasKeyboardHandlerComponents {
@@ -21,7 +28,9 @@ void main() {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(960, 540);
       addTearDown(tester.view.reset);
-      final level = Level1(swordSound: _SilentSound());
+      final playerSound = _SilentSound();
+      final enemySound = _SilentSound();
+      final level = Level1(swordSound: playerSound, enemySound: enemySound);
       final game = _CombatGame(level);
       await tester.pumpWidget(MaterialApp(home: GameWidget(game: game)));
       await tester.runAsync(() async {
@@ -55,14 +64,20 @@ void main() {
       enemy.onStrike = null; // Isolate the player's hit detection first.
       enemy.position.setValues(player.x + 80, player.y);
       level.attack();
+      expect(playerSound.plays, 1);
+      level.attack();
+      expect(playerSound.plays, 1); // Cooldown does not replay the voice.
       game.update(0.1);
       expect(enemy.health, 100); // Wind-up has not landed yet.
       game.update(0.08);
       expect(enemy.health, 75);
       expect(enemy.healthFraction, 0.75);
+      expect(enemy.currentSprite, same(enemy.damageSprite));
+      expect(enemy.startAttack(), isFalse);
       game.update(0.1);
       expect(enemy.health, 75); // One hit, not damage on every animation frame.
       game.update(0.3);
+      expect(enemy.currentSprite, isNot(same(enemy.damageSprite)));
 
       player.scale.x = -1;
       enemy.position.setValues(player.x + 80, player.y);
@@ -88,10 +103,16 @@ void main() {
       enemy.onStrike = retaliation;
       enemy.position.setValues(player.x + 80, player.y);
       enemy.cancelAttack();
+      final enemyPlays = enemySound.plays;
       enemy.startAttack();
+      expect(enemySound.plays, enemyPlays + 1);
       game.update(0.28);
       expect(player.health, 90);
       expect(player.isHurt, isTrue);
+      expect(player.currentSprite, same(player.damageSprite));
+      final playerPlays = playerSound.plays;
+      level.attack();
+      expect(playerSound.plays, playerPlays); // Hurt state blocks attack/audio.
       game.update(0.1);
       expect(player.health, 90);
 
@@ -116,6 +137,8 @@ void main() {
       expect(player.health, 100);
       expect(enemy.health, 100);
       expect(enemy.isAttacking, isFalse);
+      expect(player.isHurt, isFalse);
+      expect(enemy.isHurt, isFalse);
 
       player.takeDamage(1000);
       game.update(0);
@@ -128,6 +151,14 @@ void main() {
       expect(enemy.health, 100);
       expect(player.scale.x, 1);
       expect(enemy.scale.x, -1);
+      // AI attacks use the same audio trigger as manual attacks.
+      enemy.position.setValues(player.x + 80, player.y);
+      final aiPlays = enemySound.plays;
+      game.update(0.81);
+      expect(enemySound.plays, aiPlays + 1);
+      level.stopMovement();
+      expect(playerSound.stops, greaterThan(0));
+      expect(enemySound.stops, greaterThan(0));
       tester.view.physicalSize = const Size(568, 320);
       await tester.pumpAndSettle();
       for (final bar in bars) {
@@ -139,6 +170,8 @@ void main() {
       await tester.pumpWidget(const SizedBox());
       await tester.pump(const Duration(milliseconds: 100));
       expect(tester.takeException(), isNull);
+      expect(playerSound.disposed, isTrue);
+      expect(enemySound.disposed, isTrue);
     },
   );
 }

@@ -36,6 +36,8 @@ class OldTestamentGame extends FlameGame with HasKeyboardHandlerComponents {
       'kingdom.png',
       'prepared/angel_avatar.png',
       'prepared/devil.png',
+      'prepared/angeldamage.png',
+      'prepared/devildamage.png',
       if (!playWarVideo) 'prepared/warangels.png',
       'prepared/jesuswithadamandeve.png',
       for (final name in preparedArtNames) 'prepared/$name',

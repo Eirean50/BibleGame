@@ -46,7 +46,12 @@ void main() {
     }
     final sound = _FakeSwordSound();
     var continued = 0;
-    final level = Level1(swordSound: sound, onContinue: () => continued++);
+    final enemySound = _FakeSwordSound();
+    final level = Level1(
+      swordSound: sound,
+      enemySound: enemySound,
+      onContinue: () => continued++,
+    );
     final game = _MovementGame(level);
     final captureKey = GlobalKey();
     await tester.pumpWidget(
@@ -199,8 +204,13 @@ void main() {
     expect(sound.stops, 1);
 
     if (const bool.fromEnvironment('CAPTURE_KINGDOM')) {
-      for (final moving in [false, true]) {
+      for (final pose in ['idle', 'moving', 'hurt']) {
+        final moving = pose == 'moving';
         level.restartBattle();
+        if (pose == 'hurt') {
+          level.player.takeDamage(10);
+          level.enemy.takeDamage(25);
+        }
         if (moving) {
           level.enemy.x = level.player.x + level.player.height * 1.65;
           await tester.sendKeyDownEvent(LogicalKeyboardKey.keyD);
@@ -219,7 +229,7 @@ void main() {
             format: ui.ImageByteFormat.png,
           ))!;
           await Directory('build').create(recursive: true);
-          final name = moving ? 'kingdom-movement-preview' : 'kingdom-preview';
+          final name = 'kingdom-$pose-preview';
           await File('build/$name.png')
               .writeAsBytes(bytes.buffer.asUint8List());
           image.dispose();
@@ -240,5 +250,6 @@ void main() {
     await tester.pump(const Duration(milliseconds: 100));
     expect(tester.takeException(), isNull);
     expect(sound.disposed, isTrue);
+    expect(enemySound.disposed, isTrue);
   });
 }

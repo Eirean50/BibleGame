@@ -10,7 +10,7 @@ void main() {
   final binding = TestWidgetsFlutterBinding.ensureInitialized();
 
   test('Sword audio loads a real WAV, reuses playback and disposes on exit', () async {
-    final asset = await rootBundle.load('assets/audio/sword_slash.wav');
+    final asset = await rootBundle.load('assets/audio/sword_attack.wav');
     final bytes = asset.buffer.asUint8List(
       asset.offsetInBytes,
       asset.lengthInBytes,
@@ -69,8 +69,8 @@ void main() {
     // plugin; all playback still goes through AudioPlayer's platform messages.
     final previousCache = AudioCache.instance;
     AudioCache.instance = AudioCache()
-      ..loadedFiles['audio/sword_slash.wav'] = File(
-        'assets/audio/sword_slash.wav',
+      ..loadedFiles['audio/sword_attack.wav'] = File(
+        'assets/audio/sword_attack.wav',
       ).absolute.uri;
     addTearDown(() {
       AudioCache.instance = previousCache;
@@ -85,7 +85,7 @@ void main() {
     expect(calls.where((call) => call.method == 'setSourceUrl'), hasLength(1));
     expect(calls.where((call) => call.method == 'resume'), hasLength(2));
     final source = calls.singleWhere((call) => call.method == 'setSourceUrl');
-    expect((source.arguments as Map)['url'], endsWith('sword_slash.wav'));
+    expect((source.arguments as Map)['url'], endsWith('sword_attack.wav'));
     for (final seek in calls.where((call) => call.method == 'seek')) {
       expect((seek.arguments as Map)['position'], 0);
     }

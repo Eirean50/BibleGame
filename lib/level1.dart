@@ -11,11 +11,13 @@ import 'sword_sound.dart';
 
 /// Kingdom movement and sword practice before the Genesis story.
 class Level1 extends PositionComponent with KeyboardHandler, TapCallbacks {
-  Level1({this.onContinue, SwordSound? swordSound})
-    : _swordSound = swordSound ?? SwordSound();
+  Level1({this.onContinue, SwordSound? swordSound, SwordSound? enemySound})
+    : _swordSound = swordSound ?? SwordSound(),
+      _enemySound = enemySound ?? SwordSound();
 
   final VoidCallback? onContinue;
   final SwordSound _swordSound;
+  final SwordSound _enemySound;
   late final SpriteComponent backdrop;
   late final AngelPlayer player;
   late final DevilEnemy enemy;
@@ -50,8 +52,16 @@ class Level1 extends PositionComponent with KeyboardHandler, TapCallbacks {
       sprite: await Sprite.load('kingdom.png'),
       anchor: Anchor.center,
     );
-    player = AngelPlayer(await loadKeyedArt('angel_avatar.png'));
-    enemy = DevilEnemy(await loadKeyedArt('devil.png'));
+    player = AngelPlayer(
+      await loadKeyedArt('angel_avatar.png'),
+      await loadKeyedArt('angeldamage.png'),
+    );
+    enemy = DevilEnemy(
+      await loadKeyedArt('devil.png'),
+      await loadKeyedArt('devildamage.png'),
+    );
+    player.onAttack = () => unawaited(_swordSound.play());
+    enemy.onAttack = () => unawaited(_enemySound.play());
     player.onStrike = () => _strike(player, enemy, 25);
     enemy.onStrike = () => _strike(enemy, player, 10);
     joystick = JoystickComponent(
@@ -181,7 +191,6 @@ class Level1 extends PositionComponent with KeyboardHandler, TapCallbacks {
     if (!_ready || _leaving || player.isDefeated || !player.startAttack()) {
       return;
     }
-    unawaited(_swordSound.play());
   }
 
   void continueToGenesis() {
@@ -225,7 +234,7 @@ class Level1 extends PositionComponent with KeyboardHandler, TapCallbacks {
     );
     direction.add(joystick.relativeDelta);
     if (direction.length2 > 1) direction.normalize();
-    player.isMoving = direction.length2 > 0.001;
+    player.isMoving = !player.isHurt && direction.length2 > 0.001;
     if (player.isMoving) {
       if (!player.isAttacking && direction.x.abs() > 0.01) {
         player.scale.x = direction.x < 0 ? -1 : 1;
@@ -299,6 +308,7 @@ class Level1 extends PositionComponent with KeyboardHandler, TapCallbacks {
     enemy.isMoving = false;
     enemy.cancelAttack();
     unawaited(_swordSound.stop());
+    unawaited(_enemySound.stop());
   }
 
   @override
@@ -307,7 +317,10 @@ class Level1 extends PositionComponent with KeyboardHandler, TapCallbacks {
     super.onRemove();
   }
 
-  void disposeAudio() => unawaited(_swordSound.dispose());
+  void disposeAudio() {
+    unawaited(_swordSound.dispose());
+    unawaited(_enemySound.dispose());
+  }
 
   void _keepPlayerOnScreen() => _keepFighterOnScreen(player);
 
@@ -325,16 +338,16 @@ class Level1 extends PositionComponent with KeyboardHandler, TapCallbacks {
 }
 
 class AngelPlayer extends KingdomFighter {
-  AngelPlayer(super.sheet) : super(isDevil: false);
+  AngelPlayer(super.sheet, super.damageSprite) : super(isDevil: false);
   static const attackDuration = KingdomFighter.attackDuration;
 }
 
 class DevilEnemy extends KingdomFighter {
-  DevilEnemy(super.sheet) : super(isDevil: true);
+  DevilEnemy(super.sheet, super.damageSprite) : super(isDevil: true);
 }
 
 class KingdomFighter extends PositionComponent {
-  KingdomFighter(this._sheet, {required this.isDevil})
+  KingdomFighter(this._sheet, this.damageSprite, {required this.isDevil})
     : super(anchor: Anchor.center) {
     // Hand-fitted poses from the supplied irregular 2752x1536 sheet.
     // Coordinates use a 2048x1143 reference, scaled to the prepared texture.
@@ -366,7 +379,9 @@ class KingdomFighter extends PositionComponent {
   }
 
   final Sprite _sheet;
+  final Sprite damageSprite;
   final bool isDevil;
+  VoidCallback? onAttack;
   VoidCallback? onStrike;
   static const maxHealth = 100;
   int _health = maxHealth;
@@ -382,6 +397,7 @@ class KingdomFighter extends PositionComponent {
   bool isMoving = false;
   double _elapsed = 0;
   static const attackDuration = 0.42;
+  static const hurtDuration = 0.3;
   double _attackElapsed = 1;
   double get swingDuration => isDevil ? 0.65 : attackDuration;
   bool get isAttacking => _attackElapsed < swingDuration;
@@ -390,6 +406,7 @@ class KingdomFighter extends PositionComponent {
   bool startAttack() {
     if (isAttacking || isDefeated || isHurt) return false;
     _attackElapsed = 0;
+    onAttack?.call();
     return true;
   }
 
@@ -398,7 +415,7 @@ class KingdomFighter extends PositionComponent {
   void takeDamage(int damage) {
     if (damage <= 0 || isDefeated) return;
     _health = math.max(0, _health - damage);
-    _hurtTime = 0.2;
+    _hurtTime = hurtDuration;
     isMoving = false;
     cancelAttack();
   }
@@ -422,24 +439,29 @@ class KingdomFighter extends PositionComponent {
     }
   }
 
+  Sprite get currentSprite => isHurt
+      ? damageSprite
+      : isAttacking
+      ? _attackFrames[attackProgress < 0.22
+            ? 0
+            : attackProgress < 0.58
+            ? 1
+            : 2]
+      : isMoving
+      ? _moving
+      : _idle;
+
   @override
   void render(Canvas canvas) {
     canvas.save();
-    if (isDefeated) {
+    final fallen = isDefeated && !isHurt;
+    if (fallen) {
       canvas.translate(size.x / 2, size.y * 0.82);
       canvas.rotate(math.pi / 2);
       canvas.scale(0.8);
       canvas.translate(-size.x / 2, -size.y / 2);
     }
-    final sprite = isAttacking
-        ? _attackFrames[attackProgress < 0.22
-              ? 0
-              : attackProgress < 0.58
-              ? 1
-              : 2]
-        : isMoving
-        ? _moving
-        : _idle;
+    final sprite = currentSprite;
     // All attack crops share a ground line; the raised sword has extra space.
     final height = (size.y - 6) * (isAttacking && !isDevil ? 520 / 395 : 1);
     final drawSize = Vector2(
@@ -450,10 +472,7 @@ class KingdomFighter extends PositionComponent {
       size.x / 2,
       size.y - 3 + (isDefeated ? 0 : math.sin(_elapsed * 3) * 2),
     );
-    _paint.color = Color.fromRGBO(255, 255, 255, isDefeated ? 0.45 : 1);
-    _paint.colorFilter = isHurt && !isDefeated
-        ? const ColorFilter.mode(Color(0x99FF7272), BlendMode.srcATop)
-        : null;
+    _paint.color = Color.fromRGBO(255, 255, 255, fallen ? 0.45 : 1);
     canvas.save();
     if (identical(sprite, _idle)) {
       // Exclude the adjacent pose's wing in the upper-right corner only.
@@ -562,6 +581,7 @@ class KingdomFighter extends PositionComponent {
   @override
   void onRemove() {
     _sheet.image.dispose();
+    damageSprite.image.dispose();
     super.onRemove();
   }
 }

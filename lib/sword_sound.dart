@@ -1,7 +1,7 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 
-/// One reusable sound player per kingdom visit, created on the first gesture.
+/// One reusable player per fighter: a vocal "yah" mixed with the sword swish.
 class SwordSound {
   AudioPlayer? _player;
   Future<void>? _preparation;
@@ -11,7 +11,7 @@ class SwordSound {
   Future<void> _prepare(AudioPlayer player) async {
     await player.setReleaseMode(ReleaseMode.stop);
     await player.setVolume(0.75);
-    await player.setSource(AssetSource('audio/sword_slash.wav'));
+    await player.setSource(AssetSource('audio/sword_attack.wav'));
   }
 
   Future<void> play() async {
