@@ -23,23 +23,33 @@ void main() {
         'lion.png',
         'human.png',
         'jesuswithadamandeve.png',
+        'warangels.png',
       ]) {
         final darkBackground = name == 'Bird.png' || name == 'Deer.png';
         final enclosed =
             name == 'lion.png' ||
             name == 'human.png' ||
-            name == 'jesuswithadamandeve.png';
+            name == 'jesuswithadamandeve.png' ||
+            name == 'warangels.png';
         final sprite = await loadKeyedArt(
           name,
-          minimumGray: darkBackground
+          minimumGray: name == 'warangels.png'
+              ? 100
+              : darkBackground
               ? 28
               : name == 'lion.png'
               ? 175
               : name == 'human.png'
               ? 170
               : 135,
-          maximumGray: darkBackground ? 125 : 255,
-          tolerance: name == 'jesuswithadamandeve.png'
+          maximumGray: name == 'warangels.png'
+              ? 205
+              : darkBackground
+              ? 125
+              : 255,
+          tolerance: name == 'warangels.png'
+              ? 10
+              : name == 'jesuswithadamandeve.png'
               ? 4
               : name == 'Ground.png'
               ? 24
@@ -47,8 +57,10 @@ void main() {
               ? 20
               : 18,
           edgeConnectedOnly: enclosed,
-          clearEnclosedPatches: name != 'jesuswithadamandeve.png',
-          cleanSpriteEdges: name == 'jesuswithadamandeve.png',
+          clearEnclosedPatches:
+              name != 'jesuswithadamandeve.png' && name != 'warangels.png',
+          cleanSpriteEdges:
+              name == 'jesuswithadamandeve.png' || name == 'warangels.png',
           backgroundSeeds: name == 'jesuswithadamandeve.png'
               ? const [
                   ui.Offset(0.065, 0.306),

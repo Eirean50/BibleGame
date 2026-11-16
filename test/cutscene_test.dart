@@ -7,16 +7,12 @@ import 'package:itlective/level1.dart';
 import 'package:itlective/eden_cutscene.dart';
 import 'package:itlective/old_testament_game.dart';
 
+import 'story_test_helpers.dart';
+
 Future<OldTestamentGame> mountGame(WidgetTester tester) async {
-  final game = OldTestamentGame();
+  final game = OldTestamentGame(playWarVideo: false);
   await tester.pumpWidget(MaterialApp(home: GameWidget(game: game)));
-  await tester.runAsync(() async {
-    for (var i = 0; i < 100; i++) {
-      await Future<void>.delayed(const Duration(milliseconds: 10));
-      await tester.pump();
-      if (game.isLoaded && game.cutscene.isMounted) break;
-    }
-  });
+  await enterGenesis(tester, game);
   game.pauseEngine();
   await tester.pumpAndSettle();
   expect(game.cutscene.isMounted, isTrue);

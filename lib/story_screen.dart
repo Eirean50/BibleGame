@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'old_testament_game.dart';
+import 'war_video_overlay.dart';
 
 class StoryScreen extends StatefulWidget {
   const StoryScreen({super.key});
@@ -79,6 +80,14 @@ class _StoryScreenState extends State<StoryScreen> with WidgetsBindingObserver {
                 // Replace the entire host so the previous game is unmounted.
                 key: ObjectKey(_game),
                 game: _game,
+                overlayBuilderMap: {
+                  OldTestamentGame.warVideoOverlay: (context, game) =>
+                      WarVideoOverlay(
+                        key: ObjectKey(game),
+                        onFinished: game.war.finishCutscene,
+                        onError: game.war.finishCutscene,
+                      ),
+                },
                 loadingBuilder: (context) => const Center(
                   child: CircularProgressIndicator(color: Color(0xFFF4CB80)),
                 ),

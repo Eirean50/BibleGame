@@ -8,8 +8,16 @@ import 'package:itlective/creation_backdrop.dart';
 import 'package:itlective/old_testament_game.dart';
 import 'package:itlective/story_screen.dart';
 
+import 'story_test_helpers.dart';
+import 'fake_video_platform.dart';
+
+import 'package:video_player_platform_interface/video_player_platform_interface.dart';
+
 void main() {
   setUp(() {
+    final previousVideoPlatform = VideoPlayerPlatform.instance;
+    VideoPlayerPlatform.instance = FakeVideoPlatform();
+    addTearDown(() => VideoPlayerPlatform.instance = previousVideoPlatform);
     final dispatcher =
         TestWidgetsFlutterBinding.ensureInitialized().platformDispatcher;
     dispatcher.accessibilityFeaturesTestValue = FakeAccessibilityFeatures(
@@ -54,13 +62,7 @@ void main() {
           find.byType(GameWidget<OldTestamentGame>),
         )
         .currentGame;
-    await tester.runAsync(() async {
-      for (var attempt = 0; attempt < 500; attempt++) {
-        await Future<void>.delayed(const Duration(milliseconds: 10));
-        await tester.pump();
-        if (game.isLoaded && game.cutscene.isMounted) break;
-      }
-    });
+    await enterGenesis(tester, game);
     await tester.pump();
     // A running game schedules frames continuously; pause before settling.
     game.pauseEngine();
@@ -106,13 +108,7 @@ void main() {
           find.byType(GameWidget<OldTestamentGame>),
         )
         .currentGame;
-    await tester.runAsync(() async {
-      for (var attempt = 0; attempt < 500; attempt++) {
-        await Future<void>.delayed(const Duration(milliseconds: 10));
-        await tester.pump();
-        if (replay.isLoaded && replay.cutscene.isMounted) break;
-      }
-    });
+    await enterGenesis(tester, replay);
     replay.pauseEngine();
     await tester.pumpAndSettle();
     expect(replay, isNot(same(game)));
@@ -166,13 +162,7 @@ void main() {
           find.byType(GameWidget<OldTestamentGame>),
         )
         .currentGame;
-    await tester.runAsync(() async {
-      for (var attempt = 0; attempt < 500; attempt++) {
-        await Future<void>.delayed(const Duration(milliseconds: 10));
-        await tester.pump();
-        if (restarted.isLoaded && restarted.cutscene.isMounted) break;
-      }
-    });
+    await enterGenesis(tester, restarted);
     restarted.pauseEngine();
     await tester.pumpAndSettle();
     expect(restarted, isNot(same(replay)));
@@ -185,6 +175,11 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Play'), findsOneWidget);
     expect(tester.takeException(), isNull);
+    // Each new story visit starts the first clip and prepares the second.
+    expect(
+      (VideoPlayerPlatform.instance as FakeVideoPlatform).sources,
+      hasLength(6),
+    );
   });
 
   testWidgets('Main menu shows artwork and only the Play action', (
