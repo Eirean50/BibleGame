@@ -1,0 +1,5 @@
+Mode: built-in image_gen, edit.
+Input: assets/images/God.png
+Output: assets/images/God-background.png
+
+Use case: precise-object-edit. Edit target: the provided pixel art God.png game backdrop. Remove ONLY the small white dove and the flame immediately above that dove in the top center, between the seated Father and Son. Inpaint that small area with the existing golden luminous rays and halo background seamlessly. The game will place a separately animated dove in that exact area, so leave it empty of any bird or flame. Preserve the Father and Son exactly, their faces, poses, robes, the alpha and omega letters, halo rings, clouds, sea, land, overall composition, colors, dimensions/aspect ratio, and crisp pixel art style. No other changes, no added objects, no cropping. Save the resulting image as an asset; provide its local saved file path.
