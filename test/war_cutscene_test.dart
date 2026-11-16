@@ -6,7 +6,7 @@ import 'package:itlective/war_cutscene.dart';
 
 void main() {
   testWidgets(
-    'Battle plays once, survives resize and automatically opens Genesis',
+    'Battle plays once, survives resize and opens gameplay before Genesis',
     (tester) async {
       tester.view.devicePixelRatio = 1;
       tester.view.physicalSize = const Size(960, 540);
@@ -44,17 +44,19 @@ void main() {
           await Future<void>.delayed(const Duration(milliseconds: 10));
           await tester.pump();
           game.update(0);
-          if (game.router.currentRoute.name == 'intro' &&
+          if (game.router.currentRoute.name == 'Level1' &&
               game.router.currentRoute.children.isNotEmpty &&
-              game.cutscene.isMounted) {
+              game.kingdom.isMounted) {
             break;
           }
         }
       });
       expect(war.elapsed, WarCutscene.duration);
-      expect(game.router.currentRoute.name, 'intro');
+      expect(game.router.currentRoute.name, 'Level1');
       expect(game.router.stack, hasLength(1));
-      expect(game.cutscene.textIndex, 0);
+      expect(game.kingdom.player.isMounted, isTrue);
+      game.update(60);
+      expect(game.router.currentRoute.name, 'Level1');
       await tester.pumpWidget(const SizedBox());
       await tester.pump();
       expect(tester.takeException(), isNull);

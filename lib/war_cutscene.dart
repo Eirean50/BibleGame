@@ -80,7 +80,7 @@ class WarCutscene extends PositionComponent with TapCallbacks {
       textRenderer: text(14),
     );
     _skip = TextComponent(
-      text: 'SKIP TO GENESIS >',
+      text: 'SKIP TO GAMEPLAY >',
       anchor: Anchor.center,
       textRenderer: text(12),
     );
@@ -238,7 +238,7 @@ class WarCutscene extends PositionComponent with TapCallbacks {
         _paint..color = Color.fromRGBO(255, 236, 163, pulse * 0.3),
       );
     }
-    // Fade in from black, then out into Genesis' opening darkness.
+    // Fade in from black, then out into the kingdom gameplay.
     final fade = math.max(1 - _progress(0, 0.8), _progress(13.8, 1.2));
     if (fade > 0) {
       canvas.drawRect(

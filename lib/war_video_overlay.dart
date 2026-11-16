@@ -217,7 +217,7 @@ class _WarVideoOverlayState extends State<WarVideoOverlay> {
 
   void _fallback(Object? error) {
     if (!mounted || _ended) return;
-    debugPrint('Battle video unavailable; continuing to Genesis: $error');
+    debugPrint('Battle video unavailable; continuing to gameplay: $error');
     _ended = true;
     _loadingTimer?.cancel();
     widget.onError();
@@ -279,7 +279,7 @@ class _WarVideoOverlayState extends State<WarVideoOverlay> {
               textStyle: const TextStyle(fontFamily: 'monospace', fontSize: 12),
             ),
             onPressed: _finish,
-            child: const Text('SKIP TO GENESIS >'),
+            child: const Text('SKIP TO GAMEPLAY >'),
           ),
         ),
       ],

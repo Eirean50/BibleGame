@@ -73,11 +73,11 @@ void main() {
       expect(find.byType(VideoPlayer), findsOneWidget);
       expect(platform.volumes[1], 1);
 
-      // Only the second clip's completion enters Genesis.
+      // Only the second clip's completion enters gameplay.
       platform.streams[1]!.add(VideoEvent(eventType: VideoEventType.completed));
       await tester.pump();
       expect(finished, 1);
-      await tester.tap(find.text('SKIP TO GENESIS >'));
+      await tester.tap(find.text('SKIP TO GAMEPLAY >'));
       expect(finished, 1);
       await tester.pumpWidget(const SizedBox());
       await tester.pump();
@@ -103,7 +103,7 @@ void main() {
       ),
     );
     await tester.pump();
-    await tester.tap(find.text('SKIP TO GENESIS >'));
+    await tester.tap(find.text('SKIP TO GAMEPLAY >'));
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 25));
     expect(finished, 1);

@@ -92,7 +92,7 @@ void main() {
     scene.advance();
     scene.advance();
     scene.finishCutscene();
-    // Creation now flows into Eden before Level1.
+    // Gameplay has already finished; Creation flows into Eden.
     await tester.runAsync(() async {
       for (var attempt = 0; attempt < 200; attempt++) {
         await Future<void>.delayed(const Duration(milliseconds: 10));
@@ -130,18 +130,17 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 10));
         await tester.pump();
         game.update(0);
-        if (game.descendants().whereType<Level1>().isNotEmpty) break;
+        if (game.descendants().whereType<GardenEnding>().isNotEmpty) break;
       }
     });
     await tester.pumpAndSettle();
-    expect(game.router.currentRoute.name, 'Level1');
+    expect(game.router.currentRoute.name, 'ending');
     expect(game.router.stack, hasLength(1));
-    expect(game.descendants().whereType<Level1>(), hasLength(1));
-    final level = game.descendants().whereType<Level1>().single;
-    expect(level.backdrop.isRevealed, isTrue);
-    expect(level.backdrop.currentFrame, 5);
+    expect(game.descendants().whereType<Level1>(), isEmpty);
+    final ending = game.descendants().whereType<GardenEnding>().single;
+    expect(ending.backdrop.isRevealed, isTrue);
     game.update(30);
-    expect(level.backdrop.currentFrame, 5);
+    expect(ending.backdrop.currentFrame, 5);
     await disposeGame(tester);
   });
 

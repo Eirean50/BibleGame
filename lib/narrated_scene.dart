@@ -185,7 +185,7 @@ abstract class NarratedScene extends PositionComponent with TapCallbacks {
 
   void onTextChanged() => onTextIndexChanged?.call(_textIndex);
 
-  /// Idempotent: rapid taps cannot open multiple Level1 routes.
+  /// Idempotent: rapid taps cannot open multiple story routes.
   void finishCutscene() {
     if (!_ready ||
         _finished ||

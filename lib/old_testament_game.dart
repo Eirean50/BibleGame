@@ -1,3 +1,4 @@
+import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart' hide Route;
 
@@ -7,7 +8,7 @@ import 'keyed_art.dart';
 import 'eden_cutscene.dart';
 import 'war_cutscene.dart';
 
-class OldTestamentGame extends FlameGame {
+class OldTestamentGame extends FlameGame with HasKeyboardHandlerComponents {
   // The normal opening uses only the fullscreen movie.
   OldTestamentGame({this.playWarVideo = true});
 
@@ -17,6 +18,7 @@ class OldTestamentGame extends FlameGame {
   late final CutsceneComponent cutscene;
   late final EdenCutscene eden;
   late final WarCutscene war;
+  late final Level1 kingdom;
 
   @override
   Color backgroundColor() => const Color(0xFF090E20);
@@ -31,7 +33,9 @@ class OldTestamentGame extends FlameGame {
       'bg_sea.png',
       'AngelsSpriteSheetNew.png',
       'garden.png',
-      if (!playWarVideo) 'kingdom.png',
+      'kingdom.png',
+      'prepared/angel_avatar.png',
+      'prepared/devil.png',
       if (!playWarVideo) 'prepared/warangels.png',
       'prepared/jesuswithadamandeve.png',
       for (final name in preparedArtNames) 'prepared/$name',
@@ -47,7 +51,7 @@ class OldTestamentGame extends FlameGame {
                 : null,
             onFinished: () {
               overlays.remove(warVideoOverlay);
-              router.pushReplacementNamed('intro');
+              router.pushReplacementNamed('Level1');
             },
           ),
           maintainState: false,
@@ -59,13 +63,38 @@ class OldTestamentGame extends FlameGame {
         }, maintainState: false),
         'eden': Route(
           () => eden = EdenCutscene(
-            onFinished: () => router.pushReplacementNamed('Level1'),
+            onFinished: () => router.pushReplacementNamed('ending'),
           ),
           maintainState: false,
         ),
-        'Level1': Route(Level1.new),
+        'Level1': Route(
+          () => kingdom = Level1(
+            onContinue: () => router.pushReplacementNamed('intro'),
+          ),
+          maintainState: false,
+        ),
+        'ending': Route(GardenEnding.new, maintainState: false),
       },
     );
     await add(router);
+  }
+
+  @override
+  void onRemove() {
+    // GameWidget detaches the game without removing each child component.
+    for (final level in descendants().whereType<Level1>()) {
+      level.disposeAudio();
+    }
+    super.onRemove();
+  }
+
+  @override
+  void lifecycleStateChange(AppLifecycleState state) {
+    if (state != AppLifecycleState.resumed) {
+      for (final level in descendants().whereType<Level1>()) {
+        level.stopMovement();
+      }
+    }
+    super.lifecycleStateChange(state);
   }
 }

@@ -1,7 +1,8 @@
+import 'package:flame/components.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:itlective/old_testament_game.dart';
 
-Future<void> enterGenesis(WidgetTester tester, OldTestamentGame game) async {
+Future<void> enterKingdom(WidgetTester tester, OldTestamentGame game) async {
   await tester.runAsync(() async {
     for (var attempt = 0; attempt < 500; attempt++) {
       await Future<void>.delayed(const Duration(milliseconds: 10));
@@ -13,8 +14,28 @@ Future<void> enterGenesis(WidgetTester tester, OldTestamentGame game) async {
   expect(game.router.currentRoute.name, 'war');
   expect(game.war.isFinished, isFalse);
   expect(game.war.elapsed, lessThan(3));
-  // Use the real skip hit target. A second tap must never skip Genesis text.
+  // Use the real skip hit target to enter gameplay before Genesis.
   await tester.tapAt(game.war.skipBounds.center);
+  await tester.runAsync(() async {
+    for (var attempt = 0; attempt < 500; attempt++) {
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      await tester.pump();
+      game.update(0);
+      if (game.router.currentRoute.name == 'Level1' &&
+          game.router.currentRoute.children.isNotEmpty &&
+          game.kingdom.isMounted) {
+        break;
+      }
+    }
+  });
+  expect(game.router.currentRoute.name, 'Level1');
+  expect(game.kingdom.isMounted, isTrue);
+}
+
+Future<void> enterGenesis(WidgetTester tester, OldTestamentGame game) async {
+  await enterKingdom(tester, game);
+  // Only the explicit continue button leaves the kingdom.
+  await tester.tapAt(game.kingdom.continueButton.position.toOffset());
   await tester.runAsync(() async {
     for (var attempt = 0; attempt < 500; attempt++) {
       await Future<void>.delayed(const Duration(milliseconds: 10));

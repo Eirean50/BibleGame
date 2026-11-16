@@ -18,7 +18,7 @@ class EdenCutscene extends NarratedScene {
     : super(
         script: edenScript,
         heading: 'GENESIS / THE GARDEN OF EDEN',
-        endHint: 'TAP TO BEGIN LEVEL 1 >',
+        endHint: 'TAP TO VIEW THE GARDEN >',
         fixedPanelHeight: true,
       );
 
@@ -36,6 +36,21 @@ class EdenCutscene extends NarratedScene {
       _revealAnnounced = true;
       refreshHint();
     }
+  }
+}
+
+/// Hold the completed garden after Genesis without repeating the prologue game.
+class GardenEnding extends PositionComponent {
+  final backdrop = GardenBackdrop(alreadyRevealed: true);
+
+  @override
+  Future<void> onLoad() async => add(backdrop);
+
+  @override
+  void onGameResize(Vector2 size) {
+    super.onGameResize(size);
+    this.size.setFrom(size);
+    backdrop.size.setFrom(size);
   }
 }
 
