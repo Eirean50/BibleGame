@@ -1,6 +1,7 @@
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:itlective/level1.dart';
 import 'package:itlective/sword_sound.dart';
@@ -22,6 +23,105 @@ class _CombatGame extends FlameGame with HasKeyboardHandlerComponents {
 }
 
 void main() {
+  testWidgets('Angel ultimate heals, hits once, cools down, and resets', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(960, 540);
+    addTearDown(tester.view.reset);
+    final ambience = _SilentSound();
+    final level = Level1(
+      reinforcements: 0,
+      swordSound: _SilentSound(),
+      enemySound: _SilentSound(),
+      ambienceSound: ambience,
+    );
+    final game = _CombatGame(level);
+    await tester.pumpWidget(MaterialApp(home: GameWidget(game: game)));
+    await tester.runAsync(() async {
+      for (var i = 0; i < 500 && !level.isMounted; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        await tester.pump();
+      }
+    });
+    expect(level.isMounted, isTrue);
+    game.pauseEngine();
+    await tester.pumpAndSettle();
+    game.update(0);
+    expect(ambience.plays, 1);
+    final player = level.player;
+    final enemy = level.enemy;
+    enemy.onStrike = null;
+    player.takeDamage(60);
+    enemy.position.setValues(player.x - 100, player.y);
+    // The radial attack also reaches behind the angel.
+    await tester.tapAt(level.ultimateButton.position.toOffset());
+    expect(player.health, 75);
+    expect(player.isUltimateActive, isTrue);
+    expect(level.ultimateCooldownRemaining, 30);
+    expect(level.ultimateButton.enabled, isFalse);
+    level.useUltimate();
+    expect(player.health, 75);
+    level.attack();
+    expect(player.isAttacking, isFalse);
+    game.update(0.44);
+    expect(enemy.health, 100);
+    game.update(0.02);
+    expect(enemy.health, 50);
+    game.update(1);
+    expect(enemy.health, 50);
+    expect(player.isUltimateActive, isFalse);
+    game.update(28.53);
+    expect(level.canUseUltimate, isFalse);
+    game.update(0.02);
+    expect(level.canUseUltimate, isTrue);
+    enemy.position.setValues(player.x + player.height * 3, player.y);
+    level.useUltimate();
+    expect(player.health, 100); // Healing never exceeds max HP.
+    game.update(0.46);
+    expect(enemy.health, 50); // Outside the blast radius.
+    level.stopMovement();
+    expect(ambience.stops, greaterThan(0));
+    level.resumeBattleAudio();
+    expect(ambience.plays, 2);
+    level.restartBattle();
+    expect(level.ultimateCooldownRemaining, 0);
+    expect(player.isUltimateActive, isFalse);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.keyQ);
+    expect(player.isUltimateActive, isTrue);
+    game.update(1);
+    await tester.sendKeyRepeatEvent(LogicalKeyboardKey.keyQ);
+    expect(level.ultimateCooldownRemaining, 29);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.keyQ);
+    for (final size in [const Size(320, 568), const Size(568, 320)]) {
+      tester.view.physicalSize = size;
+      await tester.pumpAndSettle();
+      final button = level.ultimateButton;
+      expect(
+        button.x + button.width * button.scale.x / 2,
+        lessThanOrEqualTo(size.width),
+      );
+      expect(
+        button.y - button.height * button.scale.y / 2,
+        greaterThanOrEqualTo(0),
+      );
+    }
+    player.takeDamage(1000);
+    level.useUltimate();
+    expect(player.health, 0); // Cannot resurrect with an ultimate.
+    game.update(0);
+    expect(ambience.stops, greaterThan(1));
+    level.restartBattle();
+    enemy.takeDamage(1000);
+    expect(level.canUseUltimate, isFalse);
+    level.removeFromParent();
+    game.update(0);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(ambience.disposed, isTrue);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'Sword range, facing, health bars, enemy attacks and battle reset',
     (tester) async {
@@ -30,7 +130,12 @@ void main() {
       addTearDown(tester.view.reset);
       final playerSound = _SilentSound();
       final enemySound = _SilentSound();
-      final level = Level1(swordSound: playerSound, enemySound: enemySound);
+      final level = Level1(
+        reinforcements: 0,
+        swordSound: playerSound,
+        enemySound: enemySound,
+        ambienceSound: _SilentSound(),
+      );
       final game = _CombatGame(level);
       await tester.pumpWidget(MaterialApp(home: GameWidget(game: game)));
       await tester.runAsync(() async {

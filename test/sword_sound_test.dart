@@ -5,6 +5,7 @@ import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:itlective/sword_sound.dart';
+import 'package:itlective/level1.dart';
 
 void main() {
   final binding = TestWidgetsFlutterBinding.ensureInitialized();
@@ -71,6 +72,9 @@ void main() {
     AudioCache.instance = AudioCache()
       ..loadedFiles['audio/sword_attack.wav'] = File(
         'assets/audio/sword_attack.wav',
+      ).absolute.uri
+      ..loadedFiles[Level1.battleAudioAsset] = File(
+        'assets/${Level1.battleAudioAsset}',
       ).absolute.uri;
     addTearDown(() {
       AudioCache.instance = previousCache;
@@ -95,6 +99,30 @@ void main() {
     await sound.dispose();
     await sound.play();
     expect(calls.where((call) => call.method == 'dispose'), hasLength(1));
+    expect(calls.where((call) => call.method == 'resume'), hasLength(2));
+    calls.clear();
+    final ambience = SwordSound(
+      asset: Level1.battleAudioAsset,
+      volume: 0.65,
+      loop: true,
+    );
+    await ambience.play();
+    final mode = calls.singleWhere((call) => call.method == 'setReleaseMode');
+    expect((mode.arguments as Map)['releaseMode'], ReleaseMode.loop.toString());
+    final volume = calls.singleWhere((call) => call.method == 'setVolume');
+    expect((volume.arguments as Map)['volume'], 0.65);
+    final ambientSource = calls.singleWhere(
+      (call) => call.method == 'setSourceUrl',
+    );
+    expect(
+      (ambientSource.arguments as Map)['url'],
+      endsWith('warnew_battle.m4a'),
+    );
+    await ambience.stop();
+    await ambience.play();
+    expect(calls.where((call) => call.method == 'create'), hasLength(1));
+    await ambience.dispose();
+    await ambience.play();
     expect(calls.where((call) => call.method == 'resume'), hasLength(2));
   });
 }

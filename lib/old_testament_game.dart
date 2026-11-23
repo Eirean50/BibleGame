@@ -37,6 +37,7 @@ class OldTestamentGame extends FlameGame with HasKeyboardHandlerComponents {
       'prepared/angel_avatar.png',
       'prepared/devil.png',
       'prepared/angeldamage.png',
+      'prepared/ultiangels.png',
       'prepared/devildamage.png',
       if (!playWarVideo) 'prepared/warangels.png',
       'prepared/jesuswithadamandeve.png',
@@ -95,6 +96,10 @@ class OldTestamentGame extends FlameGame with HasKeyboardHandlerComponents {
     if (state != AppLifecycleState.resumed) {
       for (final level in descendants().whereType<Level1>()) {
         level.stopMovement();
+      }
+    } else {
+      for (final level in descendants().whereType<Level1>()) {
+        level.resumeBattleAudio();
       }
     }
     super.lifecycleStateChange(state);

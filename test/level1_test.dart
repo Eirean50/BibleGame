@@ -48,8 +48,10 @@ void main() {
     var continued = 0;
     final enemySound = _FakeSwordSound();
     final level = Level1(
+      reinforcements: 0,
       swordSound: sound,
       enemySound: enemySound,
+      ambienceSound: _FakeSwordSound(),
       onContinue: () => continued++,
     );
     final game = _MovementGame(level);
@@ -199,14 +201,20 @@ void main() {
     await tester.sendKeyDownEvent(LogicalKeyboardKey.space);
     expect(sound.plays, 4);
     await tester.sendKeyUpEvent(LogicalKeyboardKey.space);
+    final stopsBeforePause = sound.stops;
     level.stopMovement();
     expect(level.player.isAttacking, isFalse);
-    expect(sound.stops, 1);
+    expect(sound.stops, stopsBeforePause + 1);
 
     if (const bool.fromEnvironment('CAPTURE_KINGDOM')) {
-      for (final pose in ['idle', 'moving', 'hurt']) {
+      for (final pose in ['idle', 'moving', 'hurt', 'ultimate']) {
         final moving = pose == 'moving';
         level.restartBattle();
+        if (pose == 'ultimate') {
+          level.player.takeDamage(50);
+          level.useUltimate();
+          game.update(0.65);
+        }
         if (pose == 'hurt') {
           level.player.takeDamage(10);
           level.enemy.takeDamage(25);

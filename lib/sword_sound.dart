@@ -3,15 +3,24 @@ import 'package:flutter/foundation.dart';
 
 /// One reusable player per fighter: a vocal "yah" mixed with the sword swish.
 class SwordSound {
+  SwordSound({
+    this.asset = 'audio/sword_attack.wav',
+    this.volume = 0.75,
+    this.loop = false,
+  });
+
+  final String asset;
+  final double volume;
+  final bool loop;
   AudioPlayer? _player;
   Future<void>? _preparation;
   bool _disposed = false;
   int _request = 0;
 
   Future<void> _prepare(AudioPlayer player) async {
-    await player.setReleaseMode(ReleaseMode.stop);
-    await player.setVolume(0.75);
-    await player.setSource(AssetSource('audio/sword_attack.wav'));
+    await player.setReleaseMode(loop ? ReleaseMode.loop : ReleaseMode.stop);
+    await player.setVolume(volume);
+    await player.setSource(AssetSource(asset));
   }
 
   Future<void> play() async {
