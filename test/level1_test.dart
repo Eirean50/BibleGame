@@ -49,6 +49,8 @@ void main() {
     final enemySound = _FakeSwordSound();
     final level = Level1(
       reinforcements: 0,
+      secondWaveSize: 0,
+      heavenBattleEnabled: false,
       swordSound: sound,
       enemySound: enemySound,
       ambienceSound: _FakeSwordSound(),
@@ -207,9 +209,33 @@ void main() {
     expect(sound.stops, stopsBeforePause + 1);
 
     if (const bool.fromEnvironment('CAPTURE_KINGDOM')) {
-      for (final pose in ['idle', 'moving', 'hurt', 'ultimate']) {
-        final moving = pose == 'moving';
+      for (final pose in [
+        'idle',
+        'moving',
+        'moving-left',
+        'attack-windup',
+        'attack',
+        'attack-followthrough',
+        'attack-left',
+        'hurt',
+        'ultimate',
+        'defeated',
+      ]) {
+        final moving = pose == 'moving' || pose == 'moving-left';
+        final moveKey = pose == 'moving-left'
+            ? LogicalKeyboardKey.keyA
+            : LogicalKeyboardKey.keyD;
         level.restartBattle();
+        if (pose.startsWith('attack')) {
+          if (pose == 'attack-left') level.player.scale.x = -1;
+          level.attack();
+          game.update(switch (pose) {
+            'attack-windup' => 0.02,
+            'attack-followthrough' => 0.28,
+            _ => 0.12,
+          });
+        }
+        if (pose == 'defeated') level.player.takeDamage(1000);
         if (pose == 'ultimate') {
           level.player.takeDamage(50);
           level.useUltimate();
@@ -221,7 +247,7 @@ void main() {
         }
         if (moving) {
           level.enemy.x = level.player.x + level.player.height * 1.65;
-          await tester.sendKeyDownEvent(LogicalKeyboardKey.keyD);
+          await tester.sendKeyDownEvent(moveKey);
         }
         game.update(0.05);
         game.resumeEngine();
@@ -242,8 +268,9 @@ void main() {
               .writeAsBytes(bytes.buffer.asUint8List());
           image.dispose();
         });
-        if (moving) await tester.sendKeyUpEvent(LogicalKeyboardKey.keyD);
+        if (moving) await tester.sendKeyUpEvent(moveKey);
       }
+      level.restartBattle();
     }
     final playsBeforeContinue = sound.plays;
     await tester.tapAt(level.continueButton.position.toOffset());

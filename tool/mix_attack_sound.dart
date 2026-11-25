@@ -48,14 +48,18 @@ void main() {
   );
   final voice = rawVoice.sublist(start, end);
   final peak = voice.map((x) => x.abs()).reduce(math.max);
-  // Fit the call within one swing so repeated attacks don't cut off a word.
+  // Lower the male voice by about five semitones for a deeper battle cry.
+  // Resample only the voice so the sword swish keeps its original character.
+  const voiceSpeed = 0.76;
+  final voiceStep = voiceRate / rate * voiceSpeed;
   final voiceLength = math.min(
-    (voice.length * rate / voiceRate).round(),
-    (rate * 0.37).round(),
+    (voice.length / voiceStep).floor(),
+    (rate * 0.40).round(),
   );
   final samples = List<double>.filled(math.max(voiceLength, swish.length), 0);
   for (var i = 0; i < voiceLength; i++) {
-    final position = i * (voice.length - 1) / (voiceLength - 1);
+    // Keep pitch fixed even if a longer source reaches the swing-length limit.
+    final position = i * voiceStep;
     final low = position.floor();
     final high = math.min(low + 1, voice.length - 1);
     final value = voice[low] + (voice[high] - voice[low]) * (position - low);

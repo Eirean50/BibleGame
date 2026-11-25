@@ -50,7 +50,16 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
     });
     final previous = AudioCache.instance;
     AudioCache.instance = AudioCache();
-    for (final name in ['sword_attack.wav', 'warnew_battle.m4a']) {
+    for (final name in [
+      'sword_attack.wav',
+      'sword_slash.wav',
+      'warnew_battle.m4a',
+      "Tim Curry's devil laugh (legend).mp3",
+      'genesis_waters.wav',
+      'genesis_wind.wav',
+      'genesis_nature.wav',
+      'genesis_reveal.wav',
+    ]) {
       AudioCache.instance.loadedFiles['audio/$name'] = File(
         'assets/audio/$name',
       ).absolute.uri;

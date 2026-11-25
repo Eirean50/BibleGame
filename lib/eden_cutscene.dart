@@ -6,6 +6,7 @@ import 'package:flutter/painting.dart';
 import 'keyed_art.dart';
 import 'eden_cliff.dart';
 import 'narrated_scene.dart';
+import 'genesis_audio.dart';
 
 const List<String> edenScript = [
   'By the seventh day, the heavens and the earth were fully completed.',
@@ -14,13 +15,22 @@ const List<String> edenScript = [
 ];
 
 class EdenCutscene extends NarratedScene {
-  EdenCutscene({required super.onFinished})
-    : super(
+  EdenCutscene({required super.onFinished, GenesisAudio? audio})
+    : audio = audio ?? GenesisAudio(initialAmbience: GenesisAmbience.nature),
+      super(
         script: edenScript,
         heading: 'GENESIS / THE GARDEN OF EDEN',
         endHint: 'TAP TO VIEW THE GARDEN >',
         fixedPanelHeight: true,
       );
+
+  final GenesisAudio audio;
+
+  @override
+  Future<void> onLoad() async {
+    await add(audio);
+    await super.onLoad();
+  }
 
   @override
   final GardenBackdrop backdrop = GardenBackdrop();
@@ -41,10 +51,14 @@ class EdenCutscene extends NarratedScene {
 
 /// Hold the completed garden after Genesis without repeating the prologue game.
 class GardenEnding extends PositionComponent {
+  GardenEnding({GenesisAudio? audio})
+    : audio = audio ?? GenesisAudio(initialAmbience: GenesisAmbience.nature);
+
+  final GenesisAudio audio;
   final backdrop = GardenBackdrop(alreadyRevealed: true);
 
   @override
-  Future<void> onLoad() async => add(backdrop);
+  Future<void> onLoad() async => addAll([backdrop, audio]);
 
   @override
   void onGameResize(Vector2 size) {

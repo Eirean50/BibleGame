@@ -7,6 +7,7 @@ import 'level1.dart';
 import 'keyed_art.dart';
 import 'eden_cutscene.dart';
 import 'war_cutscene.dart';
+import 'genesis_audio.dart';
 
 class OldTestamentGame extends FlameGame with HasKeyboardHandlerComponents {
   // The normal opening uses only the fullscreen movie.
@@ -34,10 +35,11 @@ class OldTestamentGame extends FlameGame with HasKeyboardHandlerComponents {
       'AngelsSpriteSheetNew.png',
       'garden.png',
       'kingdom.png',
+      'heaven.png',
       'prepared/angel_avatar.png',
+      'prepared/${AngelPlayer.artAsset}',
       'prepared/devil.png',
       'prepared/angeldamage.png',
-      'prepared/ultiangels.png',
       'prepared/devildamage.png',
       if (!playWarVideo) 'prepared/warangels.png',
       'prepared/jesuswithadamandeve.png',
@@ -88,6 +90,9 @@ class OldTestamentGame extends FlameGame with HasKeyboardHandlerComponents {
     for (final level in descendants().whereType<Level1>()) {
       level.disposeAudio();
     }
+    for (final audio in descendants().whereType<GenesisAudio>()) {
+      audio.disposeAudio();
+    }
     super.onRemove();
   }
 
@@ -97,9 +102,15 @@ class OldTestamentGame extends FlameGame with HasKeyboardHandlerComponents {
       for (final level in descendants().whereType<Level1>()) {
         level.stopMovement();
       }
+      for (final audio in descendants().whereType<GenesisAudio>()) {
+        audio.pauseAudio();
+      }
     } else {
       for (final level in descendants().whereType<Level1>()) {
         level.resumeBattleAudio();
+      }
+      for (final audio in descendants().whereType<GenesisAudio>()) {
+        audio.resumeAudio();
       }
     }
     super.lifecycleStateChange(state);

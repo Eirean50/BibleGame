@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'keyed_art.dart';
+import 'battle_loss_screen.dart';
 import 'sword_sound.dart';
 
 /// Playable angel-led team battle before the Genesis story.
@@ -16,9 +17,14 @@ class Level1 extends PositionComponent with KeyboardHandler, TapCallbacks {
     SwordSound? swordSound,
     SwordSound? enemySound,
     SwordSound? ambienceSound,
+    SwordSound? defeatSound,
     this.reinforcements = 3,
+    this.secondWaveSize = 8,
+    this.heavenBattleEnabled = true,
   }) : _swordSound = swordSound ?? SwordSound(),
        _enemySound = enemySound ?? SwordSound(),
+       _defeatSound =
+           defeatSound ?? SwordSound(asset: defeatAudioAsset, volume: 0.85),
        _ambienceSound =
            ambienceSound ??
            SwordSound(asset: battleAudioAsset, volume: 0.65, loop: true);
@@ -27,15 +33,37 @@ class Level1 extends PositionComponent with KeyboardHandler, TapCallbacks {
   final SwordSound _swordSound;
   final SwordSound _enemySound;
   final SwordSound _ambienceSound;
+  final SwordSound _defeatSound;
   static const battleAudioAsset = 'audio/warnew_battle.m4a';
+  static const defeatAudioAsset = "audio/Tim Curry's devil laugh (legend).mp3";
   final int reinforcements;
+  final int secondWaveSize;
+  final bool heavenBattleEnabled;
+  static const heavenTransitionDuration = 4.0;
+  bool _inHeaven = false;
+  bool get isInHeaven => _inHeaven;
+  bool _transitioningToHeaven = false;
+  bool get isTransitioningToHeaven => _transitioningToHeaven;
+  double _transitionElapsed = 0;
+  RectangleComponent? _transitionVeil;
+  double get heavenTransitionOpacity => _transitionVeil?.opacity ?? 0;
+  late final Sprite _heavenSprite;
+  final _waveEnemies = <DevilEnemy>[];
+  final _waveAllies = <KingdomFighter>[];
+  final _gateArrivals = <KingdomFighter, _GateArrival>{};
+  final _waveHealthBars = <FighterHealthBar>[];
+  final _enteringEnemies = <KingdomFighter>{};
+  bool _secondWaveSpawned = false;
+  bool get _wavePending => !_secondWaveSpawned && secondWaveSize > 0;
   final allies = <KingdomFighter>[];
   final additionalEnemies = <DevilEnemy>[];
   Iterable<KingdomFighter> get angelTeam => [player, ...allies];
   Iterable<KingdomFighter> get devilTeam => [enemy, ...additionalEnemies];
   Iterable<KingdomFighter> get fighters => [...angelTeam, ...devilTeam];
   bool get battleOver =>
-      player.isDefeated || devilTeam.every((fighter) => fighter.isDefeated);
+      _transitioningToHeaven ||
+      player.isDefeated ||
+      (!_wavePending && devilTeam.every((fighter) => fighter.isDefeated));
   final _aiCooldowns = <KingdomFighter, double>{};
   final _aiTargets = <KingdomFighter, KingdomFighter>{};
   bool _ambiencePlaying = false;
@@ -52,13 +80,18 @@ class Level1 extends PositionComponent with KeyboardHandler, TapCallbacks {
       ultimateCooldownRemaining <= 0;
   late final SpriteComponent backdrop;
   late final AngelPlayer player;
+  late final Sprite _allySheet;
+  late final Sprite _allyDamageSprite;
   late final DevilEnemy enemy;
+  late final Sprite _devilLaughSheet;
+  late final List<Sprite> _devilLaughFrames;
   late final JoystickComponent joystick;
   late final TextComponent _hint;
   late final KingdomButton attackButton;
   late final KingdomButton ultimateButton;
   late final KingdomButton continueButton;
   late final KingdomButton retryButton;
+  BattleLossScreen? lossScreen;
   bool _ready = false;
   bool _spawned = false;
   bool _leaving = false;
@@ -78,6 +111,11 @@ class Level1 extends PositionComponent with KeyboardHandler, TapCallbacks {
 
   double get movementSpeed => math.min(size.x, size.y) * 0.45;
 
+  // Current arena's door threshold, transformed by the backdrop's cover zoom.
+  Vector2 get kingdomGatePosition =>
+      backdrop.position +
+      Vector2(0, backdrop.height * ((_inHeaven ? 0.43 : 0.545) - 0.5));
+
   @override
   Future<void> onLoad() async {
     backdrop = SpriteComponent(
@@ -85,20 +123,39 @@ class Level1 extends PositionComponent with KeyboardHandler, TapCallbacks {
       anchor: Anchor.center,
       priority: -1000,
     );
-    player = AngelPlayer(
-      await loadKeyedArt('angel_avatar.png'),
-      await loadKeyedArt('angeldamage.png'),
-      await loadKeyedArt('ultiangels.png'),
-    );
+    _heavenSprite = await Sprite.load('heaven.png');
+    player = AngelPlayer(await loadKeyedArt(AngelPlayer.artAsset));
+    _allySheet = await loadKeyedArt('angel_avatar.png');
+    _allyDamageSprite = await loadKeyedArt('angeldamage.png');
     enemy = DevilEnemy(
       await loadKeyedArt('devil.png'),
       await loadKeyedArt('devildamage.png'),
     );
+    _devilLaughSheet = await loadKeyedArt('devil_laugh.png');
+    _devilLaughFrames = [
+      for (final crop in const [
+        Rect.fromLTRB(570, 980, 880, 1510),
+        Rect.fromLTRB(975, 980, 1345, 1510),
+        Rect.fromLTRB(1390, 980, 1805, 1510),
+        Rect.fromLTRB(1825, 980, 2240, 1510),
+      ])
+        Sprite(
+          _devilLaughSheet.image,
+          srcPosition: Vector2(
+            crop.left / 2752 * _devilLaughSheet.image.width,
+            crop.top / 1536 * _devilLaughSheet.image.height,
+          ),
+          srcSize: Vector2(
+            crop.width / 2752 * _devilLaughSheet.image.width,
+            crop.height / 1536 * _devilLaughSheet.image.height,
+          ),
+        ),
+    ];
     for (var i = 0; i < reinforcements; i++) {
       allies.add(
         KingdomFighter(
-          await loadKeyedArt('angel_avatar.png'),
-          await loadKeyedArt('angeldamage.png'),
+          Sprite(_allySheet.image.clone()),
+          Sprite(_allyDamageSprite.image.clone()),
           isDevil: false,
         ),
       );
@@ -110,11 +167,7 @@ class Level1 extends PositionComponent with KeyboardHandler, TapCallbacks {
       );
     }
     for (final fighter in [...allies, ...devilTeam]) {
-      _aiCooldowns[fighter] = 0.8;
-      fighter.onStrike = () {
-        final target = _aiTargets[fighter];
-        if (target != null) _strike(fighter, target, fighter.isDevil ? 10 : 12);
-      };
+      _configureAi(fighter);
     }
     player.onAttack = () => unawaited(_swordSound.play());
     enemy.onAttack = () => unawaited(_enemySound.play());
@@ -126,7 +179,7 @@ class Level1 extends PositionComponent with KeyboardHandler, TapCallbacks {
     // Keep direct attacks useful before the first AI update as well.
     _aiTargets[enemy] = player;
     player.onUltimateStrike = () {
-      if (_leaving || player.isDefeated) return;
+      if (_leaving || _transitioningToHeaven || player.isDefeated) return;
       for (final target in devilTeam) {
         if (!target.isDefeated &&
             player.position.distanceTo(target.position) <= player.height * 2) {
@@ -206,11 +259,7 @@ class Level1 extends PositionComponent with KeyboardHandler, TapCallbacks {
   }
 
   void resumeBattleAudio() {
-    if (!_ready ||
-        _leaving ||
-        player.isDefeated ||
-        battleOver ||
-        _ambiencePlaying) {
+    if (!_ready || _leaving || _ambiencePlaying) {
       return;
     }
     _ambiencePlaying = true;
@@ -236,7 +285,9 @@ class Level1 extends PositionComponent with KeyboardHandler, TapCallbacks {
   void _layout() {
     if (!_ready || size.x <= 0 || size.y <= 0) return;
     final source = backdrop.sprite!.srcSize;
-    final zoom = math.max(size.x / source.x, size.y / source.y) * sceneZoom;
+    final zoom =
+        math.max(size.x / source.x, size.y / source.y) *
+        (_inHeaven ? 1.0 : sceneZoom);
     backdrop.size.setFrom(source * zoom);
     backdrop.position.setFrom(size / 2);
     // Bring the fight closer while keeping both fighters visible on narrow screens.
@@ -247,7 +298,7 @@ class Level1 extends PositionComponent with KeyboardHandler, TapCallbacks {
     player.size.setValues(height * 0.96, height);
     enemy.size.setFrom(player.size);
     for (final fighter in [...allies, ...additionalEnemies]) {
-      fighter.size.setFrom(player.size * 0.62);
+      fighter.size.setFrom(player.size);
       fighter.priority = -10;
     }
     if (!_spawned) {
@@ -271,6 +322,11 @@ class Level1 extends PositionComponent with KeyboardHandler, TapCallbacks {
     for (final fighter in fighters) {
       _keepFighterOnScreen(fighter);
     }
+    for (final entry in _gateArrivals.entries) {
+      _positionArrivingAlly(entry.key, entry.value);
+    }
+    lossScreen?.resize(size);
+    _transitionVeil?.size.setFrom(size);
   }
 
   @override
@@ -294,7 +350,11 @@ class Level1 extends PositionComponent with KeyboardHandler, TapCallbacks {
   }
 
   void attack() {
-    if (!_ready || _leaving || player.isDefeated || !player.startAttack()) {
+    if (!_ready ||
+        _leaving ||
+        _transitioningToHeaven ||
+        player.isDefeated ||
+        !player.startAttack()) {
       return;
     }
   }
@@ -321,7 +381,13 @@ class Level1 extends PositionComponent with KeyboardHandler, TapCallbacks {
   }
 
   void continueToGenesis() {
-    if (!_ready || _leaving || onContinue == null) return;
+    if (!_ready ||
+        _leaving ||
+        _transitioningToHeaven ||
+        player.isDefeated ||
+        onContinue == null) {
+      return;
+    }
     _leaving = true;
     stopMovement();
     onContinue!();
@@ -331,13 +397,42 @@ class Level1 extends PositionComponent with KeyboardHandler, TapCallbacks {
   void update(double dt) {
     super.update(dt);
     if (!_ready || _leaving) return;
+    if (_transitioningToHeaven) {
+      _updateHeavenTransition(dt);
+      return;
+    }
+    if (!player.isDefeated &&
+        _wavePending &&
+        devilTeam.every((fighter) => fighter.isDefeated)) {
+      _spawnSecondWave();
+    }
     ultimateCooldownRemaining = math.max(0, ultimateCooldownRemaining - dt);
     _updateUltimateButton();
     if (battleOver) {
       if (!_retryShown) {
-        stopMovement();
+        stopMovement(keepBattleAudio: true);
         _retryShown = true;
-        add(retryButton);
+        if (player.isDefeated) {
+          player.cancelUltimate();
+          for (final devil in devilTeam.whereType<DevilEnemy>()) {
+            if (!devil.isDefeated) devil.startLaughing(_devilLaughFrames);
+          }
+          unawaited(_defeatSound.play());
+          final lossRetry = KingdomButton(
+            label: 'ULITIN LABAN',
+            onPressed: restartBattle,
+          )..enabled = false;
+          lossScreen = BattleLossScreen(
+            retryButton: lossRetry,
+            onRevealed: () => lossRetry.enabled = true,
+          )..resize(size);
+          add(lossScreen!);
+        } else if (heavenBattleEnabled && !_inHeaven) {
+          _beginHeavenTransition();
+          return;
+        } else {
+          add(retryButton);
+        }
       }
     }
     if (player.isDefeated) {
@@ -394,9 +489,154 @@ class Level1 extends PositionComponent with KeyboardHandler, TapCallbacks {
     }
   }
 
+  void _configureAi(KingdomFighter fighter) {
+    _aiCooldowns[fighter] = 0.8;
+    fighter.onStrike = () {
+      final target = _aiTargets[fighter];
+      if (target != null) _strike(fighter, target, fighter.isDevil ? 10 : 12);
+    };
+  }
+
+  void _spawnSecondWave() {
+    _secondWaveSpawned = true;
+    final rows = (secondWaveSize / 2).ceil();
+    for (var i = 0; i < secondWaveSize; i++) {
+      final fromLeft = i.isEven;
+      final row = i ~/ 2;
+      // Each fighter owns image clones, just like the initial team.
+      final fighter = DevilEnemy(
+        Sprite(enemy._sheet.image.clone()),
+        Sprite(enemy.damageSprite.image.clone()),
+      );
+      fighter.size.setFrom(player.size);
+      fighter.priority = -10;
+      fighter.scale.x = fromLeft ? 1 : -1;
+      final offset = fighter.width / 2 + 16 + row * fighter.width * 0.35;
+      fighter.position.setValues(
+        fromLeft ? -offset : size.x + offset,
+        size.y * (0.22 + 0.60 * (row + 0.5) / rows),
+      );
+      _waveEnemies.add(fighter);
+      additionalEnemies.add(fighter);
+      _enteringEnemies.add(fighter);
+      _keepFighterOnScreen(fighter);
+      _configureAi(fighter);
+      final bar = FighterHealthBar(fighter, const Color(0xFFF16D76));
+      _waveHealthBars.add(bar);
+      addAll([fighter, bar]);
+    }
+    for (var i = 0; i < secondWaveSize; i++) {
+      final ally = KingdomFighter(
+        Sprite(_allySheet.image.clone()),
+        Sprite(_allyDamageSprite.image.clone()),
+        isDevil: false,
+      );
+      ally.size.setFrom(player.size);
+      ally.priority = -10;
+      ally.arrivalOpacity = 0;
+      final arrival = _GateArrival(i, -i * 0.22);
+      _waveAllies.add(ally);
+      allies.add(ally);
+      _gateArrivals[ally] = arrival;
+      _positionArrivingAlly(ally, arrival);
+      _configureAi(ally);
+      final bar = FighterHealthBar(ally, const Color(0xFF72E6A1));
+      _waveHealthBars.add(bar);
+      addAll([ally, bar]);
+    }
+  }
+
+  void _positionArrivingAlly(KingdomFighter ally, _GateArrival arrival) {
+    final progress = (arrival.elapsed / 1.2).clamp(0.0, 1.0);
+    final start = kingdomGatePosition - Vector2(0, ally.height * 0.45);
+    final destination = Vector2(
+      size.x * (0.20 + 0.60 * (arrival.index + 0.5) / secondWaveSize),
+      size.y * (arrival.index.isEven ? 0.66 : 0.82),
+    );
+    ally.position.setFrom(start + (destination - start) * progress);
+    ally.scale.x = destination.x < start.x ? -1 : 1;
+    ally.arrivalOpacity = (arrival.elapsed / 0.3).clamp(0.0, 1.0);
+    _keepFighterOnScreen(ally);
+  }
+
   void restartBattle() {
     if (!_ready || _leaving) return;
-    stopMovement();
+    _transitionVeil?.removeFromParent();
+    _transitionVeil = null;
+    _transitioningToHeaven = false;
+    _transitionElapsed = 0;
+    attackButton.enabled = true;
+    continueButton.enabled = true;
+    _resetBattle();
+  }
+
+  void _beginHeavenTransition() {
+    _transitioningToHeaven = true;
+    _transitionElapsed = 0;
+    player.cancelUltimate();
+    attackButton.enabled = false;
+    continueButton.enabled = false;
+    _updateUltimateButton();
+    _transitionVeil = RectangleComponent(
+      size: size.clone(),
+      paint: Paint()..color = const Color(0xFFFFF4D5),
+      priority: 20000,
+    )..opacity = 0;
+    add(_transitionVeil!);
+  }
+
+  void _updateHeavenTransition(double dt) {
+    _transitionElapsed = math.min(
+      heavenTransitionDuration,
+      _transitionElapsed + dt,
+    );
+    const half = heavenTransitionDuration / 2;
+    if (!_inHeaven && _transitionElapsed >= half) {
+      // Reset behind the fully opaque veil so defeated bodies never pop in.
+      _inHeaven = true;
+      backdrop.sprite = _heavenSprite;
+      _resetBattle(keepBattleAudio: true);
+      _layout();
+    }
+    final fade = _transitionElapsed <= half
+        ? _transitionElapsed / half
+        : (heavenTransitionDuration - _transitionElapsed) / half;
+    _transitionVeil?.opacity = Curves.easeInOut.transform(fade.clamp(0.0, 1.0));
+    if (_transitionElapsed >= heavenTransitionDuration) {
+      // Discard joystick input held during the transition before combat resumes.
+      stopMovement(keepBattleAudio: true);
+      _transitioningToHeaven = false;
+      _transitionVeil?.removeFromParent();
+      _transitionVeil = null;
+      attackButton.enabled = true;
+      continueButton.enabled = true;
+      _updateUltimateButton();
+    }
+  }
+
+  void _resetBattle({bool keepBattleAudio = false}) {
+    stopMovement(keepBattleAudio: keepBattleAudio);
+    lossScreen?.removeFromParent();
+    lossScreen = null;
+    for (final fighter in _waveEnemies) {
+      additionalEnemies.remove(fighter);
+      _aiCooldowns.remove(fighter);
+      fighter.removeFromParent();
+    }
+    for (final ally in _waveAllies) {
+      allies.remove(ally);
+      _aiCooldowns.remove(ally);
+      ally.removeFromParent();
+    }
+    for (final bar in _waveHealthBars) {
+      bar.removeFromParent();
+    }
+    _waveEnemies.clear();
+    _waveAllies.clear();
+    _gateArrivals.clear();
+    _waveHealthBars.clear();
+    _enteringEnemies.clear();
+    _secondWaveSpawned = false;
     for (final fighter in fighters) {
       fighter.restoreHealth();
     }
@@ -422,14 +662,44 @@ class Level1 extends PositionComponent with KeyboardHandler, TapCallbacks {
     final cooldown = math.max(0.0, (_aiCooldowns[fighter] ?? 0) - dt);
     _aiCooldowns[fighter] = cooldown;
     fighter.isMoving = false;
+    final arrival = _gateArrivals[fighter];
+    if (arrival != null) {
+      arrival.elapsed += math.min(dt, 0.1);
+      _positionArrivingAlly(fighter, arrival);
+      fighter.isMoving = arrival.elapsed > 0;
+      if (arrival.elapsed >= 1.2) _gateArrivals.remove(fighter);
+      return;
+    }
     if (fighter.isAttacking || fighter.isHurt) return;
+    if (_enteringEnemies.contains(fighter)) {
+      final fromLeft = fighter.scale.x > 0;
+      final edge = fromLeft
+          ? fighter.width / 2 + 8
+          : size.x - fighter.width / 2 - 8;
+      final distance = edge - fighter.x;
+      final travel = movementSpeed * 0.8 * math.min(dt, 0.1);
+      fighter.isMoving = true;
+      if (distance.abs() <= travel) {
+        fighter.x = edge;
+        _enteringEnemies.remove(fighter);
+      } else {
+        fighter.x += distance.sign * travel;
+      }
+      return;
+    }
     // Commit to a living opponent so nearby pairs do not continually swap
     // targets and converge on the same fighter in the middle of the screen.
     var target = _aiTargets[fighter];
-    if (target == null || target.isDefeated) {
+    if (target == null ||
+        target.isDefeated ||
+        _gateArrivals.containsKey(target)) {
       final opponents =
           (fighter.isDevil ? angelTeam : devilTeam)
-              .where((candidate) => !candidate.isDefeated)
+              .where(
+                (candidate) =>
+                    !candidate.isDefeated &&
+                    !_gateArrivals.containsKey(candidate),
+              )
               .toList()
             ..sort(
               (a, b) => fighter.position
@@ -462,7 +732,14 @@ class Level1 extends PositionComponent with KeyboardHandler, TapCallbacks {
     for (var i = 0; i < team.length; i++) {
       for (var j = i + 1; j < team.length; j++) {
         final a = team[i], b = team[j];
-        if (a.isDefeated || b.isDefeated) continue;
+        if (a.isDefeated ||
+            b.isDefeated ||
+            _enteringEnemies.contains(a) ||
+            _enteringEnemies.contains(b) ||
+            _gateArrivals.containsKey(a) ||
+            _gateArrivals.containsKey(b)) {
+          continue;
+        }
         final delta = a.position - b.position;
         final distance = delta.length;
         final spacing = (a.width + b.width) * 0.24;
@@ -479,7 +756,11 @@ class Level1 extends PositionComponent with KeyboardHandler, TapCallbacks {
   }
 
   void _strike(KingdomFighter attacker, KingdomFighter target, int damage) {
-    if (_leaving || battleOver || attacker.isDefeated || target.isDefeated) {
+    if (_leaving ||
+        battleOver ||
+        attacker.isDefeated ||
+        target.isDefeated ||
+        _gateArrivals.containsKey(target)) {
       return;
     }
     final delta = target.position - attacker.position;
@@ -492,7 +773,7 @@ class Level1 extends PositionComponent with KeyboardHandler, TapCallbacks {
     }
   }
 
-  void stopMovement() {
+  void stopMovement({bool keepBattleAudio = false}) {
     if (!_ready) return;
     joystick.onDragStop();
     joystick.update(0);
@@ -502,19 +783,28 @@ class Level1 extends PositionComponent with KeyboardHandler, TapCallbacks {
     }
     unawaited(_swordSound.stop());
     unawaited(_enemySound.stop());
-    _ambiencePlaying = false;
-    unawaited(_ambienceSound.stop());
+    unawaited(_defeatSound.stop());
+    if (!keepBattleAudio) {
+      _ambiencePlaying = false;
+      unawaited(_ambienceSound.stop());
+    }
   }
 
   @override
   void onRemove() {
     disposeAudio();
+    if (_ready) {
+      _devilLaughSheet.image.dispose();
+      _allySheet.image.dispose();
+      _allyDamageSprite.image.dispose();
+    }
     super.onRemove();
   }
 
   void disposeAudio() {
     unawaited(_swordSound.dispose());
     unawaited(_enemySound.dispose());
+    unawaited(_defeatSound.dispose());
     unawaited(_ambienceSound.dispose());
   }
 
@@ -522,10 +812,12 @@ class Level1 extends PositionComponent with KeyboardHandler, TapCallbacks {
 
   void _keepFighterOnScreen(KingdomFighter fighter) {
     final half = fighter.size / 2;
-    fighter.x = fighter.x.clamp(
-      half.x + 8,
-      math.max(half.x + 8, size.x - half.x - 8),
-    );
+    if (!_enteringEnemies.contains(fighter)) {
+      fighter.x = fighter.x.clamp(
+        half.x + 8,
+        math.max(half.x + 8, size.x - half.x - 8),
+      );
+    }
     fighter.y = fighter.y.clamp(
       half.y + 18,
       math.max(half.y + 18, size.y - half.y - 8),
@@ -533,27 +825,56 @@ class Level1 extends PositionComponent with KeyboardHandler, TapCallbacks {
   }
 }
 
+class _GateArrival {
+  _GateArrival(this.index, this.elapsed);
+  final int index;
+  double elapsed;
+}
+
 class AngelPlayer extends KingdomFighter {
-  AngelPlayer(super.sheet, super.damageSprite, this.ultimateSheet)
-    : super(isDevil: false) {
-    Sprite pose(Rect crop) => Sprite(
-      ultimateSheet.image,
-      srcPosition: Vector2(
-        crop.left / 2752 * ultimateSheet.image.width,
-        crop.top / 1536 * ultimateSheet.image.height,
-      ),
-      srcSize: Vector2(
-        crop.width / 2752 * ultimateSheet.image.width,
-        crop.height / 1536 * ultimateSheet.image.height,
-      ),
-    );
+  AngelPlayer(Sprite sheet)
+    : super(
+        sheet,
+        _pose(
+          Sprite(sheet.image.clone()),
+          const Rect.fromLTRB(965, 620, 1340, 1045),
+        ),
+        isDevil: false,
+      ) {
+    _michaelIdle = _pose(sheet, const Rect.fromLTRB(60, 65, 515, 535));
+    _michaelMoving = _pose(sheet, const Rect.fromLTRB(540, 45, 1035, 525));
+    _michaelFallen = _pose(sheet, const Rect.fromLTRB(1855, 680, 2245, 1045));
+    // Dedicated wind-up, slash and follow-through from Michaelfight.jpg.
+    // Every player pose comes from this sheet, including hurt and ultimate.
+    _michaelAttacks = [
+      _pose(sheet, const Rect.fromLTRB(530, 1075, 915, 1530)),
+      _pose(sheet, const Rect.fromLTRB(940, 1070, 1415, 1530)),
+      // Start below the ultimate's glow in the row above.
+      _pose(sheet, const Rect.fromLTRB(1420, 1090, 1855, 1530)),
+    ];
     _ultimateFrames = [
-      pose(const Rect.fromLTRB(530, 1060, 950, 1500)),
-      pose(const Rect.fromLTRB(976, 1060, 1380, 1500)),
-      pose(const Rect.fromLTRB(1380, 1020, 1845, 1500)),
+      _pose(sheet, const Rect.fromLTRB(590, 580, 960, 1050)),
+      _michaelAttacks.first,
+      _pose(sheet, const Rect.fromLTRB(1405, 510, 1845, 1080)),
     ];
   }
-  final Sprite ultimateSheet;
+
+  static const artAsset = 'michaelfight.png';
+  static Sprite _pose(Sprite sheet, Rect crop) => Sprite(
+    sheet.image,
+    srcPosition: Vector2(
+      crop.left / 2752 * sheet.image.width,
+      crop.top / 1536 * sheet.image.height,
+    ),
+    srcSize: Vector2(
+      crop.width / 2752 * sheet.image.width,
+      crop.height / 1536 * sheet.image.height,
+    ),
+  );
+  late final Sprite _michaelIdle;
+  late final Sprite _michaelMoving;
+  late final Sprite _michaelFallen;
+  late final List<Sprite> _michaelAttacks;
   late final List<Sprite> _ultimateFrames;
   VoidCallback? onUltimateStrike;
   static const ultimateDuration = 1.4;
@@ -580,13 +901,59 @@ class AngelPlayer extends KingdomFighter {
   }
 
   @override
-  Sprite get currentSprite => isUltimateActive
+  Sprite get currentSprite => isDefeated
+      ? (isHurt ? damageSprite : _michaelFallen)
+      : isUltimateActive
       ? _ultimateFrames[_ultimateElapsed < 0.3
             ? 0
             : _ultimateElapsed < 0.65
             ? 1
             : 2]
-      : super.currentSprite;
+      : isHurt
+      ? damageSprite
+      : isAttacking
+      ? _michaelAttacks[attackProgress < 0.22
+            ? 0
+            : attackProgress < 0.58
+            ? 1
+            : 2]
+      : isMoving
+      ? _michaelMoving
+      : _michaelIdle;
+
+  // Keep a consistent source-pixel scale for raised swords and taller effects.
+  @override
+  double get spriteHeightMultiplier =>
+      currentSprite.srcSize.y / _michaelIdle.srcSize.y;
+  @override
+  bool get rotateWhenDefeated => false;
+
+  @override
+  void clipSprite(
+    Canvas canvas,
+    Sprite sprite,
+    Vector2 feet,
+    Vector2 drawSize,
+  ) {
+    if (!identical(sprite, _michaelMoving)) return;
+    // The neighboring guard pose's flaming sword enters the bottom-right
+    // corner of Michael's flight crop. Keep his own blade above this notch.
+    final left = feet.x - drawSize.x / 2;
+    final top = feet.y - drawSize.y;
+    final notchX = left + drawSize.x * (980 - 540) / 495;
+    final notchY = top + drawSize.y * (340 - 45) / 480;
+    canvas.clipPath(
+      Path()..addPolygon([
+        Offset(left, top),
+        Offset(left + drawSize.x, top),
+        Offset(left + drawSize.x, notchY),
+        Offset(notchX, notchY),
+        Offset(notchX, feet.y),
+        Offset(left, feet.y),
+      ], true),
+    );
+  }
+
   @override
   void render(Canvas canvas) {
     if (isUltimateActive) {
@@ -621,17 +988,41 @@ class AngelPlayer extends KingdomFighter {
     super.render(canvas);
   }
 
-  @override
-  void onRemove() {
-    ultimateSheet.image.dispose();
-    super.onRemove();
-  }
-
   static const attackDuration = KingdomFighter.attackDuration;
 }
 
 class DevilEnemy extends KingdomFighter {
   DevilEnemy(super.sheet, super.damageSprite) : super(isDevil: true);
+
+  List<Sprite>? _laughFrames;
+  double _laughElapsed = 0;
+  bool get isLaughing => _laughFrames != null && !isDefeated;
+
+  void startLaughing(List<Sprite> frames) {
+    cancelAttack();
+    isMoving = false;
+    _laughFrames = frames;
+    _laughElapsed = 0;
+  }
+
+  @override
+  void update(double dt) {
+    super.update(dt);
+    if (isLaughing) _laughElapsed += dt;
+  }
+
+  @override
+  Sprite get currentSprite => isLaughing
+      ? _laughFrames![const [0, 1, 2, 1, 3, 1][(_laughElapsed / 0.16).floor() %
+            6]]
+      : super.currentSprite;
+
+  @override
+  void restoreHealth() {
+    _laughFrames = null;
+    _laughElapsed = 0;
+    super.restoreHealth();
+  }
 }
 
 class KingdomFighter extends PositionComponent {
@@ -683,6 +1074,7 @@ class KingdomFighter extends PositionComponent {
   late final List<Sprite> _attackFrames;
   final _paint = Paint()..filterQuality = FilterQuality.none;
   bool isMoving = false;
+  double arrivalOpacity = 1;
   double _elapsed = 0;
   static const attackDuration = 0.42;
   static const hurtDuration = 0.3;
@@ -745,11 +1137,22 @@ class KingdomFighter extends PositionComponent {
       ? _moving
       : _idle;
 
+  double get spriteHeightMultiplier => isAttacking && !isDevil ? 520 / 395 : 1;
+  bool get rotateWhenDefeated => true;
+
+  void clipSprite(
+    Canvas canvas,
+    Sprite sprite,
+    Vector2 feet,
+    Vector2 drawSize,
+  ) {}
+
   @override
   void render(Canvas canvas) {
+    if (arrivalOpacity <= 0) return;
     canvas.save();
     final fallen = isDefeated && !isHurt;
-    if (fallen) {
+    if (fallen && rotateWhenDefeated) {
       canvas.translate(size.x / 2, size.y * 0.82);
       canvas.rotate(math.pi / 2);
       canvas.scale(0.8);
@@ -757,7 +1160,7 @@ class KingdomFighter extends PositionComponent {
     }
     final sprite = currentSprite;
     // All attack crops share a ground line; the raised sword has extra space.
-    final height = (size.y - 6) * (isAttacking && !isDevil ? 520 / 395 : 1);
+    final height = (size.y - 6) * spriteHeightMultiplier;
     final drawSize = Vector2(
       height * sprite.srcSize.x / sprite.srcSize.y,
       height,
@@ -766,8 +1169,14 @@ class KingdomFighter extends PositionComponent {
       size.x / 2,
       size.y - 3 + (isDefeated ? 0 : math.sin(_elapsed * 3) * 2),
     );
-    _paint.color = Color.fromRGBO(255, 255, 255, fallen ? 0.45 : 1);
+    _paint.color = Color.fromRGBO(
+      255,
+      255,
+      255,
+      (fallen ? 0.45 : 1) * arrivalOpacity,
+    );
     canvas.save();
+    clipSprite(canvas, sprite, feet, drawSize);
     if (identical(sprite, _idle)) {
       // Exclude the adjacent pose's wing in the upper-right corner only.
       final left = feet.x - drawSize.x / 2;
@@ -895,6 +1304,7 @@ class FighterHealthBar extends Component {
 
   @override
   void render(Canvas canvas) {
+    if (fighter.arrivalOpacity < 1) return;
     final rect = bounds;
     canvas.drawRRect(
       RRect.fromRectAndRadius(rect.inflate(1.5), const Radius.circular(3)),

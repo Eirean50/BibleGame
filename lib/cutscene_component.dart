@@ -2,6 +2,7 @@ import 'package:flame/effects.dart';
 
 import 'creation_backdrop.dart';
 import 'narrated_scene.dart';
+import 'genesis_audio.dart';
 
 const List<String> creationScript = [
   "In the beginning God created the heavens and the earth.",
@@ -22,12 +23,24 @@ const List<String> creationScript = [
 ];
 
 class CutsceneComponent extends NarratedScene {
-  CutsceneComponent({required super.onFinished, super.onTextIndexChanged})
-    : super(
-        script: creationScript,
-        heading: 'GENESIS / THE BEGINNING',
-        endHint: 'TAP TO ENTER EDEN >',
-      );
+  CutsceneComponent({
+    required super.onFinished,
+    super.onTextIndexChanged,
+    GenesisAudio? audio,
+  }) : audio = audio ?? GenesisAudio(),
+       super(
+         script: creationScript,
+         heading: 'GENESIS / THE BEGINNING',
+         endHint: 'TAP TO ENTER EDEN >',
+       );
+
+  final GenesisAudio audio;
+
+  @override
+  Future<void> onLoad() async {
+    await add(audio);
+    await super.onLoad();
+  }
 
   @override
   final CreationBackdrop backdrop = CreationBackdrop();
@@ -35,6 +48,7 @@ class CutsceneComponent extends NarratedScene {
   /// Zero-based script indices. Replace layers with sprites here as needed.
   @override
   void onTextChanged() {
+    audio.creationStep(textIndex);
     switch (textIndex) {
       case 1:
         _fadeIn(CreationStage.waters);

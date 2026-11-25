@@ -9,6 +9,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:itlective/level1.dart';
 import 'package:itlective/sword_sound.dart';
+import 'package:itlective/keyed_art.dart';
 
 class _SilentSound extends SwordSound {
   int plays = 0;
@@ -67,8 +68,23 @@ void main() {
       game.pauseEngine();
       await tester.pumpAndSettle();
       expect(level.angelTeam, hasLength(4));
+      final michael = await tester.runAsync(
+        () => loadKeyedArt(AngelPlayer.artAsset),
+      );
+      addTearDown(michael!.image.dispose);
+      expect(level.player.currentSprite.image.isCloneOf(michael.image), isTrue);
+      expect(level.player.damageSprite.image.isCloneOf(michael.image), isTrue);
+      expect(
+        level.allies.every(
+          (ally) => !ally.currentSprite.image.isCloneOf(michael.image),
+        ),
+        isTrue,
+      );
       expect(level.devilTeam, hasLength(4));
       expect(level.children.whereType<FighterHealthBar>(), hasLength(8));
+      for (final fighter in level.fighters) {
+        expect(fighter.size, level.player.size);
+      }
       expect(ambience.plays, 1);
       final start = level.allies.first.position.clone();
       for (var i = 0; i < 140; i++) {
@@ -144,8 +160,71 @@ void main() {
       for (final devil in level.devilTeam) {
         devil.takeDamage(1000);
       }
+      final stopsBeforeWave = ambience.stops;
+      final originalEnemies = level.devilTeam.toSet();
+      game.update(0);
+      final wave = level.devilTeam
+          .where((fighter) => !originalEnemies.contains(fighter))
+          .toList();
+      expect(wave, hasLength(8));
+      final arrivingAllies = level.allies.skip(3).toList();
+      expect(arrivingAllies, hasLength(8));
+      for (final ally in arrivingAllies) {
+        expect(
+          ally.currentSprite.image.isCloneOf(
+            level.allies.first.currentSprite.image,
+          ),
+          isTrue,
+        );
+        expect(ally.currentSprite.image.isCloneOf(michael.image), isFalse);
+      }
+      expect(level.angelTeam, hasLength(12));
+      for (final ally in arrivingAllies) {
+        expect(ally.size, level.player.size);
+        expect(ally.x, closeTo(level.kingdomGatePosition.x, 0.001));
+        expect(
+          ally.y + ally.height * 0.45,
+          closeTo(level.kingdomGatePosition.y, 0.001),
+        );
+        expect(ally.arrivalOpacity, 0);
+      }
+      expect(wave.where((fighter) => fighter.x < 0), hasLength(4));
+      expect(wave.where((fighter) => fighter.x > level.width), hasLength(4));
+      expect(level.battleOver, isFalse);
+      expect(level.retryButton.isMounted, isFalse);
+      expect(ambience.stops, stopsBeforeWave);
+      for (final fighter in wave) {
+        expect(fighter.size, level.player.size);
+        expect(fighter.health, 100);
+      }
+      // Mount the new components before advancing their entry animation.
+      await tester.pump();
+      game.update(0);
+      final leftStart = wave.first.x;
+      final rightStart = wave[1].x;
+      game.update(0.1);
+      expect(wave.first.x, greaterThan(leftStart));
+      expect(wave[1].x, lessThan(rightStart));
+      expect(arrivingAllies.first.arrivalOpacity, greaterThan(0));
+      expect(arrivingAllies.last.arrivalOpacity, 0);
+      for (var i = 0; i < 55; i++) {
+        game.update(0.1);
+      }
+      for (final fighter in wave) {
+        expect(fighter.x - fighter.width / 2, greaterThanOrEqualTo(0));
+        expect(fighter.x + fighter.width / 2, lessThanOrEqualTo(level.width));
+      }
+      expect(level.devilTeam, hasLength(12)); // Only one follow-up wave.
+      expect(level.angelTeam, hasLength(12));
+      expect(arrivingAllies.every((ally) => ally.arrivalOpacity == 1), isTrue);
+      final stopsBeforeVictory = ambience.stops;
+      final playsBeforeVictory = ambience.plays;
+      for (final devil in wave) {
+        devil.takeDamage(1000);
+      }
       game.update(0);
       expect(level.battleOver, isTrue);
+      expect(level.isTransitioningToHeaven, isTrue);
       expect(level.canUseUltimate, isFalse);
       expect(
         level.fighters.every(
@@ -153,15 +232,30 @@ void main() {
         ),
         isTrue,
       );
-      expect(ambience.stops, greaterThan(0));
+      expect(ambience.stops, stopsBeforeVictory);
+      expect(ambience.plays, playsBeforeVictory);
+      // Finishing the battle keeps the current loop, without restarting it.
+      level.resumeBattleAudio();
+      expect(ambience.plays, playsBeforeVictory);
+      level.stopMovement();
+      expect(ambience.stops, stopsBeforeVictory + 1);
+      level.resumeBattleAudio();
+      expect(ambience.plays, playsBeforeVictory + 1);
       level.restartBattle();
+      await tester.pump();
       game.update(0);
+      expect(level.isTransitioningToHeaven, isFalse);
+      expect(level.isInHeaven, isFalse);
+      expect(level.devilTeam, hasLength(4));
+      expect(level.angelTeam, hasLength(4));
+      expect(level.children.whereType<FighterHealthBar>(), hasLength(8));
       expect(level.battleOver, isFalse);
       expect(level.ultimateCooldownRemaining, 0);
       for (final size in [const Size(320, 568), const Size(568, 320)]) {
         tester.view.physicalSize = size;
         await tester.pumpAndSettle();
         for (final fighter in level.fighters) {
+          expect(fighter.size, level.player.size);
           expect(fighter.x - fighter.width / 2, greaterThanOrEqualTo(0));
           expect(fighter.x + fighter.width / 2, lessThanOrEqualTo(size.width));
           expect(fighter.y - fighter.height / 2, greaterThanOrEqualTo(0));

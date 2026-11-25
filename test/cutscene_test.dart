@@ -98,7 +98,11 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 10));
         await tester.pump();
         game.update(0);
-        if (game.descendants().whereType<EdenCutscene>().isNotEmpty) break;
+        if (game.descendants().whereType<EdenCutscene>().any(
+          (scene) => scene.isMounted,
+        )) {
+          break;
+        }
       }
     });
     await tester.pumpAndSettle();
@@ -130,7 +134,11 @@ void main() {
         await Future<void>.delayed(const Duration(milliseconds: 10));
         await tester.pump();
         game.update(0);
-        if (game.descendants().whereType<GardenEnding>().isNotEmpty) break;
+        if (game.descendants().whereType<GardenEnding>().any(
+          (scene) => scene.isMounted,
+        )) {
+          break;
+        }
       }
     });
     await tester.pumpAndSettle();

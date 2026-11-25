@@ -1,10 +1,10 @@
 import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/foundation.dart';
 
-/// One reusable player per fighter: a vocal "yah" mixed with the sword swish.
+/// One reusable player per fighter, using a sword swish without a voice.
 class SwordSound {
   SwordSound({
-    this.asset = 'audio/sword_attack.wav',
+    this.asset = 'audio/sword_slash.wav',
     this.volume = 0.75,
     this.loop = false,
   });
@@ -27,7 +27,8 @@ class SwordSound {
     if (_disposed) return;
     final request = ++_request;
     try {
-      final player = _player ??= AudioPlayer();
+      // Effects have no progress UI, so they need no per-frame position polls.
+      final player = _player ??= (AudioPlayer()..positionUpdater = null);
       await (_preparation ??= _prepare(player));
       if (_disposed || request != _request) return;
       await player.seek(Duration.zero);

@@ -32,6 +32,8 @@ void main() {
     final ambience = _SilentSound();
     final level = Level1(
       reinforcements: 0,
+      secondWaveSize: 0,
+      heavenBattleEnabled: false,
       swordSound: _SilentSound(),
       enemySound: _SilentSound(),
       ambienceSound: ambience,
@@ -106,11 +108,12 @@ void main() {
         greaterThanOrEqualTo(0),
       );
     }
+    final stopsBeforeDefeat = ambience.stops;
     player.takeDamage(1000);
     level.useUltimate();
     expect(player.health, 0); // Cannot resurrect with an ultimate.
     game.update(0);
-    expect(ambience.stops, greaterThan(1));
+    expect(ambience.stops, stopsBeforeDefeat);
     level.restartBattle();
     enemy.takeDamage(1000);
     expect(level.canUseUltimate, isFalse);
@@ -132,6 +135,8 @@ void main() {
       final enemySound = _SilentSound();
       final level = Level1(
         reinforcements: 0,
+        secondWaveSize: 0,
+        heavenBattleEnabled: false,
         swordSound: playerSound,
         enemySound: enemySound,
         ambienceSound: _SilentSound(),
@@ -171,7 +176,7 @@ void main() {
       level.attack();
       expect(playerSound.plays, 1);
       level.attack();
-      expect(playerSound.plays, 1); // Cooldown does not replay the voice.
+      expect(playerSound.plays, 1); // Cooldown does not replay the swish.
       game.update(0.1);
       expect(enemy.health, 100); // Wind-up has not landed yet.
       game.update(0.08);

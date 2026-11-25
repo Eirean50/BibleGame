@@ -11,7 +11,7 @@ void main() {
   final binding = TestWidgetsFlutterBinding.ensureInitialized();
 
   test('Sword audio loads a real WAV, reuses playback and disposes on exit', () async {
-    final asset = await rootBundle.load('assets/audio/sword_attack.wav');
+    final asset = await rootBundle.load('assets/audio/sword_slash.wav');
     final bytes = asset.buffer.asUint8List(
       asset.offsetInBytes,
       asset.lengthInBytes,
@@ -70,11 +70,14 @@ void main() {
     // plugin; all playback still goes through AudioPlayer's platform messages.
     final previousCache = AudioCache.instance;
     AudioCache.instance = AudioCache()
-      ..loadedFiles['audio/sword_attack.wav'] = File(
-        'assets/audio/sword_attack.wav',
+      ..loadedFiles['audio/sword_slash.wav'] = File(
+        'assets/audio/sword_slash.wav',
       ).absolute.uri
       ..loadedFiles[Level1.battleAudioAsset] = File(
         'assets/${Level1.battleAudioAsset}',
+      ).absolute.uri
+      ..loadedFiles[Level1.defeatAudioAsset] = File(
+        'assets/${Level1.defeatAudioAsset}',
       ).absolute.uri;
     addTearDown(() {
       AudioCache.instance = previousCache;
@@ -89,7 +92,7 @@ void main() {
     expect(calls.where((call) => call.method == 'setSourceUrl'), hasLength(1));
     expect(calls.where((call) => call.method == 'resume'), hasLength(2));
     final source = calls.singleWhere((call) => call.method == 'setSourceUrl');
-    expect((source.arguments as Map)['url'], endsWith('sword_attack.wav'));
+    expect((source.arguments as Map)['url'], endsWith('sword_slash.wav'));
     for (final seek in calls.where((call) => call.method == 'seek')) {
       expect((seek.arguments as Map)['position'], 0);
     }
@@ -124,5 +127,43 @@ void main() {
     await ambience.dispose();
     await ambience.play();
     expect(calls.where((call) => call.method == 'resume'), hasLength(2));
+    calls.clear();
+    final laugh = SwordSound(asset: Level1.defeatAudioAsset, volume: 0.85);
+    await laugh.play();
+    final laughSource = calls.singleWhere(
+      (call) => call.method == 'setSourceUrl',
+    );
+    expect(
+      Uri.decodeFull((laughSource.arguments as Map)['url'] as String),
+      endsWith("Tim Curry's devil laugh (legend).mp3"),
+    );
+    final laughMode = calls.singleWhere(
+      (call) => call.method == 'setReleaseMode',
+    );
+    expect(
+      (laughMode.arguments as Map)['releaseMode'],
+      ReleaseMode.stop.toString(),
+    );
+    await laugh.stop();
+    await laugh.dispose();
   });
+
+  test(
+    'The supplied Tim Curry MP3 is bundled intact for defeat playback',
+    () async {
+      final asset = await rootBundle.load('assets/${Level1.defeatAudioAsset}');
+      final bytes = asset.buffer.asUint8List(
+        asset.offsetInBytes,
+        asset.lengthInBytes,
+      );
+      final supplied = await File(
+        "assets/audio/Tim Curry's devil laugh (legend).mp3",
+      ).readAsBytes();
+      expect(bytes, orderedEquals(supplied));
+      expect(bytes.length, greaterThan(10000));
+      final hasId3 = String.fromCharCodes(bytes.take(3)) == 'ID3';
+      final hasMpegSync = bytes[0] == 0xff && (bytes[1] & 0xe0) == 0xe0;
+      expect(hasId3 || hasMpegSync, isTrue);
+    },
+  );
 }
