@@ -8,12 +8,19 @@ import 'keyed_art.dart';
 import 'eden_cutscene.dart';
 import 'war_cutscene.dart';
 import 'genesis_audio.dart';
+import 'genesis_music.dart';
 
 class OldTestamentGame extends FlameGame with HasKeyboardHandlerComponents {
   // The normal opening uses only the fullscreen movie.
-  OldTestamentGame({this.playWarVideo = true});
+  OldTestamentGame({
+    this.playWarVideo = true,
+    this.startAtGenesis = false,
+    GenesisMusic? genesisMusic,
+  }) : genesisMusic = genesisMusic ?? GenesisMusic();
 
   final bool playWarVideo;
+  final bool startAtGenesis;
+  final GenesisMusic genesisMusic;
   static const warVideoOverlay = 'warVideo';
   late final RouterComponent router;
   late final CutsceneComponent cutscene;
@@ -34,6 +41,13 @@ class OldTestamentGame extends FlameGame with HasKeyboardHandlerComponents {
       'bg_sea.png',
       'AngelsSpriteSheetNew.png',
       'garden.png',
+      'forbidden.png',
+      'prepared/adampettingsheep.png',
+      'prepared/sleepingadam.png',
+      'prepared/adamandeveakbay.png',
+      'prepared/evewalk-solid.png',
+      'prepared/tree.png',
+      'prepared/snake.png',
       'kingdom.png',
       'heaven.png',
       'prepared/angel_avatar.png',
@@ -46,7 +60,7 @@ class OldTestamentGame extends FlameGame with HasKeyboardHandlerComponents {
       for (final name in preparedArtNames) 'prepared/$name',
     ]);
     router = RouterComponent(
-      initialRoute: 'war',
+      initialRoute: startAtGenesis ? 'intro' : 'war',
       routes: {
         'war': Route(
           () => war = WarCutscene(
@@ -62,30 +76,42 @@ class OldTestamentGame extends FlameGame with HasKeyboardHandlerComponents {
           maintainState: false,
         ),
         'intro': Route(() {
+          genesisMusic.start();
           return cutscene = CutsceneComponent(
             onFinished: () => router.pushReplacementNamed('eden'),
           );
         }, maintainState: false),
-        'eden': Route(
-          () => eden = EdenCutscene(
+        'eden': Route(() {
+          genesisMusic.start();
+          return eden = EdenCutscene(
+            onSerpentScene: genesisMusic.useSerpentTheme,
             onFinished: () => router.pushReplacementNamed('ending'),
-          ),
-          maintainState: false,
-        ),
+          );
+        }, maintainState: false),
         'Level1': Route(
           () => kingdom = Level1(
             onContinue: () => router.pushReplacementNamed('intro'),
           ),
           maintainState: false,
         ),
-        'ending': Route(GardenEnding.new, maintainState: false),
+        'ending': Route(() {
+          genesisMusic.start();
+          return GardenEnding();
+        }, maintainState: false),
       },
     );
     await add(router);
   }
 
   @override
+  void update(double dt) {
+    super.update(dt);
+    genesisMusic.update(dt);
+  }
+
+  @override
   void onRemove() {
+    genesisMusic.dispose();
     // GameWidget detaches the game without removing each child component.
     for (final level in descendants().whereType<Level1>()) {
       level.disposeAudio();
@@ -99,6 +125,7 @@ class OldTestamentGame extends FlameGame with HasKeyboardHandlerComponents {
   @override
   void lifecycleStateChange(AppLifecycleState state) {
     if (state != AppLifecycleState.resumed) {
+      genesisMusic.pause();
       for (final level in descendants().whereType<Level1>()) {
         level.stopMovement();
       }
@@ -106,6 +133,7 @@ class OldTestamentGame extends FlameGame with HasKeyboardHandlerComponents {
         audio.pauseAudio();
       }
     } else {
+      genesisMusic.resume();
       for (final level in descendants().whereType<Level1>()) {
         level.resumeBattleAudio();
       }

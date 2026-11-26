@@ -16,10 +16,11 @@ class SwordSound {
   Future<void>? _preparation;
   bool _disposed = false;
   int _request = 0;
+  double _gain = 1;
 
   Future<void> _prepare(AudioPlayer player) async {
     await player.setReleaseMode(loop ? ReleaseMode.loop : ReleaseMode.stop);
-    await player.setVolume(volume);
+    await player.setVolume(volume * _gain);
     await player.setSource(AssetSource(asset));
   }
 
@@ -46,6 +47,18 @@ class SwordSound {
       if (!_disposed && request == _request) await _player?.stop();
     } catch (error) {
       debugPrint('Could not stop sword sound: $error');
+    }
+  }
+
+  /// Relative level for soundtrack fades; safe before the player is prepared.
+  Future<void> setGain(double gain) async {
+    _gain = gain.clamp(0.0, 1.0);
+    if (_disposed || _player == null) return;
+    try {
+      await _preparation;
+      if (!_disposed) await _player?.setVolume(volume * _gain);
+    } catch (error) {
+      debugPrint('Could not adjust sound volume: $error');
     }
   }
 

@@ -19,6 +19,9 @@ abstract class NarratedScene extends PositionComponent with TapCallbacks {
   final String endHint;
   final bool fixedPanelHeight;
   bool get canFinish => true;
+  bool get canAdvance => true;
+  bool get isNarrationVisible => true;
+  String get waitingHint => 'REVEALING THE GARDEN...';
 
   final VoidCallback onFinished;
   final ValueChanged<int>? onTextIndexChanged;
@@ -64,7 +67,7 @@ abstract class NarratedScene extends PositionComponent with TapCallbacks {
   bool _finished = false;
 
   int get textIndex => _textIndex;
-  bool get isTyping => _ready && !dialogue.finished;
+  bool get isTyping => _ready && isNarrationVisible && !dialogue.finished;
   bool get isFinished => _finished;
 
   @override
@@ -101,6 +104,28 @@ abstract class NarratedScene extends PositionComponent with TapCallbacks {
     super.onGameResize(size);
     this.size.setFrom(size);
     _layout();
+  }
+
+  void refreshSceneLayout() => _layout();
+
+  @override
+  void updateTree(double dt) {
+    final showNarration = isNarrationVisible;
+    update(dt);
+    // Keep the line at its first character until the cinematic has finished.
+    for (final child in children) {
+      if (!showNarration && identical(child, dialogue)) continue;
+      child.updateTree(dt);
+    }
+  }
+
+  @override
+  void renderTree(Canvas canvas) {
+    if (isNarrationVisible) {
+      super.renderTree(canvas);
+    } else {
+      backdrop.renderTree(canvas);
+    }
   }
 
   void _layout() {
@@ -145,7 +170,10 @@ abstract class NarratedScene extends PositionComponent with TapCallbacks {
     _label.position.setValues(left + 16, top + 13);
     dialogue.position.setValues(left + 16, top + 34);
     _hint.position.setValues(left + 16, size.y - 38);
-    backdrop.size.setValues(size.x, math.max(1.0, top + 16));
+    backdrop.size.setValues(
+      size.x,
+      isNarrationVisible ? math.max(1.0, top + 16) : size.y,
+    );
   }
 
   @override
@@ -153,12 +181,13 @@ abstract class NarratedScene extends PositionComponent with TapCallbacks {
 
   /// First tap reveals the line; a separate tap advances, including the last.
   void advance() {
-    if (!_ready || _finished) return;
+    if (!_ready || _finished || !isNarrationVisible) return;
     if (isTyping) {
       dialogue.skip();
       refreshHint();
       return;
     }
+    if (!canAdvance) return;
     if (_textIndex == script.length - 1) {
       finishCutscene();
       return;
@@ -171,15 +200,17 @@ abstract class NarratedScene extends PositionComponent with TapCallbacks {
       timePerChar: secondsPerCharacter,
     );
     _layout();
-    refreshHint();
     onTextChanged();
+    refreshHint();
   }
 
   void refreshHint() {
     _hint.text = isTyping
         ? 'TAP TO REVEAL'
+        : !canAdvance
+        ? waitingHint
         : _textIndex == script.length - 1
-        ? (canFinish ? endHint : 'REVEALING THE GARDEN...')
+        ? (canFinish ? endHint : waitingHint)
         : 'TAP TO CONTINUE >';
   }
 
@@ -189,6 +220,7 @@ abstract class NarratedScene extends PositionComponent with TapCallbacks {
   void finishCutscene() {
     if (!_ready ||
         _finished ||
+        !canAdvance ||
         !canFinish ||
         isTyping ||
         _textIndex != script.length - 1) {

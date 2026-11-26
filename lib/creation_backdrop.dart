@@ -26,11 +26,18 @@ enum CreationStage {
 
 /// Pixel scenery with sky/sea artwork and independent OpacityEffect targets.
 class CreationBackdrop extends PositionComponent {
-  CreationBackdrop({bool humansAlreadyFormed = false})
-    : layers = {
-        for (final stage in CreationStage.values)
-          stage: CreationLayer(stage, humansAlreadyFormed: humansAlreadyFormed),
-      };
+  CreationBackdrop({
+    bool humansAlreadyFormed = false,
+    Iterable<CreationStage> stages = CreationStage.values,
+    bool showFish = true,
+  }) : layers = {
+         for (final stage in stages)
+           stage: CreationLayer(
+             stage,
+             humansAlreadyFormed: humansAlreadyFormed,
+             showFish: showFish,
+           ),
+       };
 
   final Map<CreationStage, CreationLayer> layers;
   final revealed = <CreationStage>{};
@@ -48,11 +55,16 @@ class CreationBackdrop extends PositionComponent {
 }
 
 class CreationLayer extends PositionComponent with HasPaint {
-  CreationLayer(this.stage, {this.humansAlreadyFormed = false}) {
+  CreationLayer(
+    this.stage, {
+    this.humansAlreadyFormed = false,
+    this.showFish = true,
+  }) {
     opacity = 0;
   }
   final CreationStage stage;
   final bool humansAlreadyFormed;
+  final bool showFish;
   SkyMotion? _sky;
   Sprite? _sea;
   Sprite? _ground;
@@ -273,6 +285,7 @@ class CreationLayer extends PositionComponent with HasPaint {
           );
         }
       case CreationStage.seaLife:
+        if (!showFish) break;
         for (final x in [106.0, 160.0, 211.0]) {
           pixel(x, 130, 9, 3, 0xFFD5B572);
           pixel(x + 9, 128, 3, 7, 0xFFD5B572);

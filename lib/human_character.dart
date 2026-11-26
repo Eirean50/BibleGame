@@ -4,7 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flame/components.dart';
 import 'package:flutter/painting.dart';
 
-/// One-shot dust-to-human sequence, ending on the fully formed pair.
+/// One-shot dust-to-Adam sequence, ending on his fully formed pose.
 class HumanCreation extends PositionComponent with HasPaint {
   HumanCreation({
     required ui.Image image,
@@ -34,17 +34,26 @@ class HumanCreation extends PositionComponent with HasPaint {
     if (alreadyFormed) _elapsed = formationDuration;
   }
 
-  // Pairs remain centered on the same ground baseline throughout the sequence.
+  // Adam remains centered on the same ground baseline throughout the sequence.
   // These are individual stages, not a regularly spaced sprite-sheet grid.
   static const _crops = [
     Rect.fromLTWH(60, 325, 550, 245), // Dust mounds.
-    Rect.fromLTWH(675, 250, 775, 320), // Bodies emerging from the dust.
-    Rect.fromLTWH(1520, 225, 455, 345), // Formed clay figures, kneeling.
-    Rect.fromLTWH(75, 750, 530, 335), // Living humans, still kneeling.
-    Rect.fromLTWH(1010, 640, 435, 450), // Standing up.
-    Rect.fromLTWH(1590, 615, 390, 475), // Fully formed pair.
+    Rect.fromLTWH(1100, 250, 350, 320), // Adam emerging from the dust.
+    Rect.fromLTWH(1520, 225, 260, 345), // Clay Adam, kneeling.
+    Rect.fromLTWH(75, 750, 270, 335), // Living Adam, still kneeling.
+    Rect.fromLTWH(1010, 640, 225, 450), // Standing up.
+    adamStandingCrop,
   ];
-  static const _widths = [44.0, 52.0, 40.0, 42.0, 36.0, 34.0];
+  static const adamStandingCrop = Rect.fromLTWH(1590, 615, 210, 475);
+  // Preserve the original pose heights when narrowing the crops to Adam alone.
+  static const _widths = [
+    44.0,
+    52.0 * 350 / 775,
+    40.0 * 260 / 455,
+    42.0 * 270 / 530,
+    36.0 * 225 / 435,
+    34.0 * 210 / 390,
+  ];
   static const _stageDuration = 1.6;
   static const _blendDuration = 0.65;
   static const formationDuration = 8.0;

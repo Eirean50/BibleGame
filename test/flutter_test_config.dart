@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:audioplayers/audioplayers.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -59,10 +60,12 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
       'genesis_wind.wav',
       'genesis_nature.wav',
       'genesis_reveal.wav',
+      'genesis_music.wav',
+      'genesis_serpent_music.wav',
     ]) {
-      AudioCache.instance.loadedFiles['audio/$name'] = File(
-        'assets/audio/$name',
-      ).absolute.uri;
+      AudioCache.instance.loadedFiles['audio/$name'] = kIsWeb
+          ? Uri.parse('assets/assets/audio/$name')
+          : File('assets/audio/$name').absolute.uri;
     }
     addTearDown(() {
       AudioCache.instance = previous;

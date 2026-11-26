@@ -18,6 +18,9 @@ Future<Sprite> loadKeyedArt(
   bool clearEnclosedPatches = true,
   bool cleanSpriteEdges = false,
   List<ui.Offset> backgroundSeeds = const [],
+  List<ui.Color> backgroundColors = const [],
+  bool cleanNeutralEdges = false,
+  int maximumWidth = 1024,
 }) async {
   final data = await rootBundle.load('assets/images/$assetName');
   final codec = await ui.instantiateImageCodec(
@@ -45,6 +48,14 @@ Future<Sprite> loadKeyedArt(
     bool isBackground(int pixel) {
       final i = pixel * 4;
       if (pixels[i + 3] == 0) return false;
+      if (backgroundColors.isNotEmpty) {
+        return backgroundColors.any((color) {
+          final rgb = color.toARGB32();
+          return (pixels[i] - ((rgb >> 16) & 255)).abs() <= tolerance &&
+              (pixels[i + 1] - ((rgb >> 8) & 255)).abs() <= tolerance &&
+              (pixels[i + 2] - (rgb & 255)).abs() <= tolerance;
+        });
+      }
       final low = math.min(pixels[i], math.min(pixels[i + 1], pixels[i + 2]));
       final high = math.max(pixels[i], math.max(pixels[i + 1], pixels[i + 2]));
       final warmChecker =
@@ -183,7 +194,9 @@ Future<Sprite> loadKeyedArt(
             pixels[i],
             math.max(pixels[i + 1], pixels[i + 2]),
           );
-          if (low < 135 || high - low > 45) continue;
+          final neutralFringe =
+              cleanNeutralEdges && low >= 30 && high - low <= 18;
+          if (!neutralFringe && (low < 135 || high - low > 45)) continue;
           final x = pixel % width;
           if ((x > 0 && pixels[(pixel - 1) * 4 + 3] == 0) ||
               (x + 1 < width && pixels[(pixel + 1) * 4 + 3] == 0) ||
@@ -204,7 +217,7 @@ Future<Sprite> loadKeyedArt(
       source.height,
       ui.PixelFormat.rgba8888,
       image.complete,
-      targetWidth: math.min(source.width, 1024),
+      targetWidth: math.min(source.width, maximumWidth),
       allowUpscaling: false,
     );
     return Sprite(await image.future);

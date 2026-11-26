@@ -9,7 +9,9 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:itlective/eden_cutscene.dart';
 
-void main() {
+import '../test/flutter_test_config.dart' as test_config;
+
+Future<void> main() => test_config.testExecutable(() async {
   testWidgets('Capture Eden close-up, retreat and reveal', (tester) async {
     tester.view.devicePixelRatio = 1;
     tester.view.physicalSize = const Size(960, 540);
@@ -68,5 +70,6 @@ void main() {
       });
     }
     await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 200));
   });
-}
+});

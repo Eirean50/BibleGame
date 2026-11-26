@@ -86,7 +86,14 @@ void main() {
       }
     });
     final sound = SwordSound();
+    await sound.setGain(0);
     await sound.play();
+    final muted = calls.singleWhere((call) => call.method == 'setVolume');
+    expect((muted.arguments as Map)['volume'], 0);
+    await sound.setGain(0.5);
+    final faded = calls.lastWhere((call) => call.method == 'setVolume');
+    expect((faded.arguments as Map)['volume'], 0.375);
+    await sound.setGain(1);
     await sound.play();
     expect(calls.where((call) => call.method == 'create'), hasLength(1));
     expect(calls.where((call) => call.method == 'setSourceUrl'), hasLength(1));

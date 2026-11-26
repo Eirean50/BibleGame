@@ -162,12 +162,26 @@ void main() {
           find.byType(GameWidget<OldTestamentGame>),
         )
         .currentGame;
-    await enterGenesis(tester, restarted);
+    await tester.runAsync(() async {
+      for (var attempt = 0; attempt < 500; attempt++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        await tester.pump();
+        if (restarted.isLoaded &&
+            restarted.router.currentRoute.name == 'intro' &&
+            restarted.cutscene.isMounted) {
+          break;
+        }
+      }
+    });
     restarted.pauseEngine();
     await tester.pumpAndSettle();
     expect(restarted, isNot(same(replay)));
     expect(restarted.cutscene.isMounted, isTrue);
     expect(restarted.router.currentRoute.name, 'intro');
+    expect(
+      restarted.overlays.isActive(OldTestamentGame.warVideoOverlay),
+      isFalse,
+    );
     expect(restarted.cutscene.textIndex, 0);
     expect(restarted.cutscene.backdrop.revealed, isEmpty);
     expect(tester.takeException(), isNull);
@@ -175,10 +189,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Play'), findsOneWidget);
     expect(tester.takeException(), isNull);
-    // Each new story visit starts the first clip and prepares the second.
+    // Menu visits play the opening clips; Genesis replay does not replay them.
     expect(
       (VideoPlayerPlatform.instance as FakeVideoPlatform).sources,
-      hasLength(6),
+      hasLength(4),
     );
   });
 

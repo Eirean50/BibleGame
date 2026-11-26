@@ -21,7 +21,7 @@ class _StoryScreenState extends State<StoryScreen> with WidgetsBindingObserver {
   OldTestamentGame _game = OldTestamentGame();
 
   void _replay() {
-    setState(() => _game = OldTestamentGame());
+    setState(() => _game = OldTestamentGame(startAtGenesis: true));
   }
 
   @override

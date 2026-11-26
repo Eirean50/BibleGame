@@ -6,11 +6,28 @@ import 'package:itlective/cutscene_component.dart';
 import 'package:itlective/level1.dart';
 import 'package:itlective/eden_cutscene.dart';
 import 'package:itlective/old_testament_game.dart';
+import 'package:itlective/genesis_music.dart';
+import 'package:itlective/garden_story.dart';
+import 'package:itlective/sword_sound.dart';
 
 import 'story_test_helpers.dart';
 
-Future<OldTestamentGame> mountGame(WidgetTester tester) async {
-  final game = OldTestamentGame(playWarVideo: false);
+class _MusicSound extends SwordSound {
+  int plays = 0;
+  int disposals = 0;
+  @override
+  Future<void> play() async => plays++;
+  @override
+  Future<void> stop() async {}
+  @override
+  Future<void> dispose() async => disposals++;
+}
+
+Future<OldTestamentGame> mountGame(
+  WidgetTester tester, {
+  GenesisMusic? music,
+}) async {
+  final game = OldTestamentGame(playWarVideo: false, genesisMusic: music);
   await tester.pumpWidget(MaterialApp(home: GameWidget(game: game)));
   await enterGenesis(tester, game);
   game.pauseEngine();
@@ -29,7 +46,13 @@ void main() {
   testWidgets('Screen taps skip, advance, restore typing and finish once', (
     tester,
   ) async {
-    final game = await mountGame(tester);
+    final soundtrack = _MusicSound();
+    final serpentTrack = _MusicSound();
+    final game = await mountGame(
+      tester,
+      music: GenesisMusic(sound: soundtrack, serpentSound: serpentTrack),
+    );
+    expect(soundtrack.plays, 1);
     final scene = game.cutscene;
     expect(scene.backdrop.layers[CreationStage.seaLife]!.birds, hasLength(2));
     final formation =
@@ -109,10 +132,12 @@ void main() {
     game.update(0);
     expect(scene.isFinished, isTrue);
     expect(game.router.currentRoute.name, 'eden');
+    expect(soundtrack.plays, 1); // Keep the same music through scene changes.
+    expect(serpentTrack.plays, 0);
     final eden = game.eden;
     expect(eden.textIndex, 0);
-    expect(eden.backdrop.cameraZoom, 3);
-    for (var i = 0; i < edenScript.length; i++) {
+    expect(eden.backdrop.garden.cameraZoom, 3);
+    for (var i = 0; i < 3; i++) {
       expect(eden.textIndex, i);
       expect(eden.isTyping, isTrue);
       eden.advance();
@@ -120,15 +145,33 @@ void main() {
       expect(eden.isTyping, isFalse);
       eden.advance();
     }
-    // Rapid taps cannot leave before the camera reveals all three figures.
+    // Keep the same mounted scene through the complete garden continuation.
     expect(eden.isFinished, isFalse);
+    expect(eden.textIndex, 2);
     game.update(6);
-    expect(eden.backdrop.cameraZoom, closeTo(2, 0.001));
+    expect(eden.backdrop.garden.cameraZoom, closeTo(2, 0.001));
     game.update(6);
-    expect(eden.backdrop.cameraZoom, 1);
-    expect(eden.backdrop.isRevealed, isTrue);
+    expect(eden.backdrop.garden.cameraZoom, 1);
+    expect(eden.backdrop.garden.isRevealed, isTrue);
     eden.advance();
-    eden.advance();
+    for (var i = 0; i < gardenStoryScript.length; i++) {
+      expect(game.router.currentRoute.name, 'eden');
+      expect(eden.isMounted, isTrue);
+      expect(eden.backdrop.isMounted, isTrue);
+      expect(eden.dialogue.isMounted, isTrue);
+      expect(eden.textIndex, i + 3);
+      expect(eden.dialogue.text, gardenStoryScript[i]);
+      expect(eden.backdrop.currentScene, i);
+      if (eden.isTyping) eden.advance();
+      game.update(GardenStoryBackdrop.transitionDuration);
+      if (i == 1) game.update(GardenStoryBackdrop.treeHoldDuration);
+      if (i >= 3) {
+        game.update(10);
+        game.update(10);
+      }
+      if (eden.isTyping) eden.advance();
+      eden.advance();
+    }
     await tester.runAsync(() async {
       for (var attempt = 0; attempt < 200; attempt++) {
         await Future<void>.delayed(const Duration(milliseconds: 10));
@@ -143,13 +186,17 @@ void main() {
     });
     await tester.pumpAndSettle();
     expect(game.router.currentRoute.name, 'ending');
+    expect(serpentTrack.plays, 1);
+    expect(soundtrack.plays, 1);
     expect(game.router.stack, hasLength(1));
     expect(game.descendants().whereType<Level1>(), isEmpty);
     final ending = game.descendants().whereType<GardenEnding>().single;
-    expect(ending.backdrop.isRevealed, isTrue);
+    expect(ending.backdrop.isLoaded, isTrue);
     game.update(30);
-    expect(ending.backdrop.currentFrame, 5);
+    expect(ending.backdrop.isMounted, isTrue);
     await disposeGame(tester);
+    expect(soundtrack.disposals, 1);
+    expect(serpentTrack.disposals, 1);
   });
 
   testWidgets('Eden keeps camera progress and fits dialogue after resizing', (
@@ -170,21 +217,25 @@ void main() {
     });
     expect(scene.isMounted, isTrue);
     game.pauseEngine();
-    expect(scene.backdrop.isGroupVisible, isFalse);
+    expect(scene.backdrop.garden.isGroupVisible, isFalse);
     game.update(2);
-    expect(scene.backdrop.isGroupVisible, isFalse);
-    expect(scene.backdrop.currentFrame, 0);
-    for (var step = 0; step < 240 && !scene.backdrop.isGroupVisible; step++) {
+    expect(scene.backdrop.garden.isGroupVisible, isFalse);
+    expect(scene.backdrop.garden.currentFrame, 0);
+    for (
+      var step = 0;
+      step < 240 && !scene.backdrop.garden.isGroupVisible;
+      step++
+    ) {
       game.update(0.05);
     }
-    expect(scene.backdrop.isGroupVisible, isTrue);
+    expect(scene.backdrop.garden.isGroupVisible, isTrue);
     expect(
-      scene.backdrop.currentFrame,
+      scene.backdrop.garden.currentFrame,
       0,
     ); // Hidden time does not advance poses.
     game.update(GardenBackdrop.frameDuration + 0.01);
-    expect(scene.backdrop.currentFrame, 1);
-    final zoom = scene.backdrop.cameraZoom;
+    expect(scene.backdrop.garden.currentFrame, 1);
+    final zoom = scene.backdrop.garden.cameraZoom;
     for (var line = 0; line < edenScript.length; line++) {
       expect(scene.textIndex, line);
       for (final size in [
@@ -194,7 +245,7 @@ void main() {
       ]) {
         tester.view.physicalSize = size;
         await tester.pumpAndSettle();
-        expect(scene.backdrop.cameraZoom, zoom);
+        expect(scene.backdrop.garden.cameraZoom, line <= 2 ? zoom : 1);
         expect(
           scene.dialogue.y + scene.dialogue.height,
           lessThanOrEqualTo(size.height - 40),
@@ -206,15 +257,25 @@ void main() {
         expect(tester.takeException(), isNull);
       }
       if (scene.isTyping) scene.advance();
+      if (line == 2) {
+        game.update(20);
+      }
+      if (line >= 4) {
+        game.update(10);
+        game.update(10);
+      }
       if (line < edenScript.length - 1) scene.advance();
     }
     game.update(20);
-    expect(scene.backdrop.cameraZoom, 1);
-    expect(scene.backdrop.currentFrame, 5);
-    expect(scene.backdrop.isAnimationFinished, isTrue);
+    expect(scene.backdrop.garden.cameraZoom, 1);
+    expect(scene.backdrop.garden.currentFrame, 5);
+    expect(scene.backdrop.garden.isAnimationFinished, isTrue);
     game.update(30);
-    expect(scene.backdrop.cameraZoom, 1); // No looping camera motion.
-    expect(scene.backdrop.currentFrame, 5); // Hold the final pose forever.
+    expect(scene.backdrop.garden.cameraZoom, 1); // No looping camera motion.
+    expect(
+      scene.backdrop.garden.currentFrame,
+      5,
+    ); // Hold the final pose forever.
     await disposeGame(tester);
   });
 

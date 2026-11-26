@@ -1,0 +1,5 @@
+Created with the built-in image_gen tool from assets/images/evewalk.png.
+The generated alpha is used directly, without chroma-keying the character.
+
+Prompt:
+Use case: background-extraction. Edit target: the supplied pixel art Eve sprite sheet. Remove ONLY the gray checkerboard background into real alpha transparency. Retain all twelve sprites in exactly their original 2-row by 6-column positions and their full silhouettes, original poses, pixel art style, brown skin, long dark hair, red hair flower, green leaf clothing, faces and feet. Every pixel of each character must be solid and opaque, especially the hair, body, clothing and outlines: NO transparent holes, no faint see-through anatomy, no missing fragments. Outside the silhouettes must be truly transparent, not a drawn checkerboard. Clean continuous outlines without gray halos, trails or extra outlines. Preserve image composition, sprite positions and proportions exactly; no extra objects, text, ground, shadows, grid or labels. This is a game sprite repair, not a redesign.
