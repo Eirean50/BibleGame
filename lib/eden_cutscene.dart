@@ -34,7 +34,7 @@ class GardenEnding extends PositionComponent {
   GardenEnding({GenesisAudio? audio}) : audio = audio ?? GenesisAudio();
 
   final GenesisAudio audio;
-  final backdrop = SerpentEncounter(alreadyArrived: true);
+  final backdrop = SerpentEncounter(alreadyArrived: true, storyComplete: true);
 
   @override
   Future<void> onLoad() async => addAll([backdrop, audio]);

@@ -46,6 +46,69 @@ Future<void> capturePreview(
 }
 
 void main() {
+  testWidgets('Screen taps continue from Genesis 3:1 through 3:4', (
+    tester,
+  ) async {
+    tester.view.devicePixelRatio = 1;
+    tester.view.physicalSize = const Size(960, 540);
+    addTearDown(tester.view.reset);
+    var finishes = 0;
+    final story = GardenStory(onFinished: () => finishes++);
+    final game = FlameGame(children: [story]);
+    await tester.pumpWidget(MaterialApp(home: GameWidget(game: game)));
+    await tester.runAsync(() async {
+      for (var i = 0; i < 500 && !story.isMounted; i++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        await tester.pump();
+      }
+    });
+    expect(story.isMounted, isTrue);
+    game.pauseEngine();
+    for (var line = 0; line < 11; line++) {
+      expect(story.textIndex, line);
+      if (story.isTyping) story.advance();
+      game.update(20);
+      game.update(20);
+      story.advance();
+    }
+    game.update(15);
+    expect(story.dialogue.text, startsWith('[3:1]'));
+    expect(story.canAdvance, isTrue);
+    for (var line = 11; line <= 14; line++) {
+      expect(story.textIndex, line);
+      expect(story.dialogue.text, startsWith('[3:${line - 10}]'));
+      if (line == 13) {
+        expect(
+          story.isTyping,
+          isFalse,
+        ); // Read the whole warning during the hold.
+        game.update(GardenStoryBackdrop.transitionDuration);
+        expect(story.backdrop.treeOpacity, 1);
+        game.update(4.99);
+        await tester.tapAt(const Offset(480, 470));
+        expect(story.textIndex, 13); // Taps cannot shorten the five seconds.
+        game.update(0.01);
+        expect(
+          story.textIndex,
+          14,
+        ); // Return automatically without another tap.
+        expect(story.backdrop.encounter.isWalking, isFalse);
+        continue;
+      }
+      // Exercise the actual pointer dispatcher, both on the scene and panel.
+      if (story.isTyping) await tester.tapAt(const Offset(480, 470));
+      game.update(3);
+      await tester.tapAt(
+        line.isEven ? const Offset(480, 470) : const Offset(100, 100),
+      );
+      await tester.pump();
+    }
+    expect(finishes, 1);
+    await tester.pumpWidget(const SizedBox());
+    await tester.pump(const Duration(milliseconds: 200));
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('Rapid screen taps cannot skip the forbidden tree fade', (
     tester,
   ) async {
@@ -140,8 +203,19 @@ void main() {
         expect(story.textIndex, line);
         expect(story.backdrop.currentScene, line);
         expect(story.dialogue.text, gardenStoryScript[line]);
+        if (line >= 12) {
+          game.update(0);
+          expect(story.isNarrationVisible, isTrue);
+          expect(story.backdrop.encounter.hasArrived, isTrue);
+          expect(story.backdrop.encounter.isWalking, isFalse);
+          expect(story.backdrop.encounter.eveProgress, closeTo(0.5, 0.001));
+          expect(story.backdrop.encounter.forbiddenOpacity, 0);
+          expect(story.backdrop.encounter.isSpeaking, line == 14);
+          expect(serpentCues, 1); // No replay of the entrance or soundtrack.
+          if (line == 12) expect(story.backdrop.isTransitioning, isFalse);
+        }
         if (story.isTyping) story.advance();
-        if (const [1, 2, 3, 5, 8, 10].contains(line)) {
+        if (const [1, 2, 3, 5, 8, 10, 13, 14].contains(line)) {
           expect(story.backdrop.isTransitioning, isTrue);
           if (line == 2) {
             story.advance();
@@ -151,7 +225,7 @@ void main() {
           expect(story.backdrop.isTransitioning, isTrue);
           game.update(1);
           expect(story.backdrop.isTransitioning, isFalse);
-          if (line == 1 || line == 10) {
+          if (line == 1 || line == 10 || line == 13) {
             story.advance();
             expect(
               story.textIndex,
@@ -290,7 +364,15 @@ void main() {
             'garden-story-$line-${size.width.toInt()}',
           );
         }
-        story.advance();
+        if (line == 13) {
+          game.update(
+            GardenStoryBackdrop.forbiddenReturnHoldDuration -
+                GardenStoryBackdrop.treeHoldDuration,
+          );
+          expect(story.textIndex, 14);
+        } else {
+          story.advance();
+        }
       }
       expect(finishes, 1);
       story.advance();

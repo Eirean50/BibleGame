@@ -25,6 +25,9 @@ const gardenStoryScript = [
   '[2:16] And the LORD God commanded the man, "You may freely eat of every tree of the garden;',
   '[2:17] but of the tree of the knowledge of good and evil you shall not eat, for in the day that you eat of it you shall die."',
   '[3:1] Now the serpent was more crafty than any other wild animal that the LORD God had made. He said to the woman, "Did God say, \'You shall not eat from any tree in the garden\'?"',
+  '[3:2] The woman said to the serpent, "We may eat of the fruit of the trees in the garden;',
+  '[3:3] but God said, \'You shall not eat of the fruit of the tree that is in the middle of the garden, nor shall you touch it, or you shall die.\'"',
+  '[3:4] But the serpent said to the woman, "You will not die;',
 ];
 
 class GardenStory extends NarratedScene {
@@ -60,6 +63,8 @@ class GardenStory extends NarratedScene {
   @override
   void onTextChanged() {
     backdrop.showScene(math.max(0, textIndex - gardenStartIndex));
+    // The timed tree insert displays Eve's entire warning for its full hold.
+    if (backdrop.currentScene == 13) dialogue.skip();
     refreshSceneLayout();
     super.onTextChanged();
   }
@@ -77,6 +82,7 @@ class GardenStory extends NarratedScene {
   @override
   String get waitingHint => switch (backdrop.currentScene) {
     1 || 10 => 'REVEALING THE TREE...',
+    13 => 'RETURNING TO THE GARDEN...',
     3 => 'A DEEP SLEEP...',
     4 => 'EVE IS RISING...',
     _ => 'REVEALING THE SCENE...',
@@ -87,8 +93,11 @@ class GardenStory extends NarratedScene {
     final couldAdvance = canAdvance;
     final wasVisible = isNarrationVisible;
     super.updateTree(dt);
+    if (backdrop.forbiddenReturnReady) super.advance();
     if (wasVisible != isNarrationVisible) refreshSceneLayout();
-    backdrop.encounter.isSpeaking = backdrop.currentScene == 11 && isTyping;
+    backdrop.encounter.isSpeaking =
+        (backdrop.currentScene == 11 || backdrop.currentScene == 14) &&
+        isTyping;
     if (!_serpentMusicStarted &&
         backdrop.currentScene == 11 &&
         backdrop.encounter.snakeHasAppeared) {
@@ -125,16 +134,23 @@ class GardenStoryBackdrop extends PositionComponent {
   final encounter = SerpentEncounter();
   static const transitionDuration = 2.0;
   static const treeHoldDuration = 0.8;
+  static const forbiddenReturnHoldDuration = 5.0;
   int _scene = 0;
   int get currentScene => _scene;
   double _elapsed = transitionDuration;
   List<double> _from = [1, 0, 0, 0, 0, 0, 0];
   List<double> _weights = [1, 0, 0, 0, 0, 0, 0];
   bool get isTransitioning => _elapsed < transitionDuration;
+  double get _holdDuration => _scene == 13
+      ? forbiddenReturnHoldDuration
+      : _layerFor(_scene) == 1
+      ? treeHoldDuration
+      : 0;
+  bool get forbiddenReturnReady =>
+      _scene == 13 &&
+      _elapsed >= transitionDuration + forbiddenReturnHoldDuration;
   bool get canLeaveScene =>
-      _elapsed >=
-          transitionDuration +
-              (_layerFor(_scene) == 1 ? treeHoldDuration : 0) &&
+      _elapsed >= transitionDuration + _holdDuration &&
       switch (_scene) {
         3 => sleeping.figures.shineFinished,
         4 => sleeping.figures.eveFinished,
@@ -149,8 +165,8 @@ class GardenStoryBackdrop extends PositionComponent {
     4 => 3,
     5 || 6 || 7 => 4,
     8 || 9 => 5,
-    10 => 1,
-    11 => 6,
+    10 || 13 => 1,
+    11 || 12 || 14 => 6,
     _ => throw ArgumentError.value(scene, 'scene'),
   };
 
@@ -184,7 +200,7 @@ class GardenStoryBackdrop extends PositionComponent {
     if (_scene == 3 || _scene == 4) sleeping.updateTree(dt);
     if (_scene >= 5 && _scene <= 7) couple.updateTree(dt);
     if (_scene == 8 || _scene == 9) commandGarden.updateTree(dt);
-    if (_scene == 11) encounter.updateTree(dt);
+    if (_scene == 11 || _scene == 12 || _scene == 14) encounter.updateTree(dt);
   }
 
   @override
@@ -197,7 +213,7 @@ class GardenStoryBackdrop extends PositionComponent {
     tree.size.setFrom(size);
     encounter.size.setFrom(size);
     // Only visible scenes advance, so Adam begins when the naming line appears.
-    _elapsed = math.min(transitionDuration + treeHoldDuration, _elapsed + dt);
+    _elapsed = math.min(transitionDuration + _holdDuration, _elapsed + dt);
     final t = (_elapsed / transitionDuration).clamp(0.0, 1.0);
     final eased = t * t * (3 - 2 * t);
     _weights = List.generate(

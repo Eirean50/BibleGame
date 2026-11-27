@@ -185,6 +185,45 @@ void main() {
     expect(restarted.cutscene.textIndex, 0);
     expect(restarted.cutscene.backdrop.revealed, isEmpty);
     expect(tester.takeException(), isNull);
+
+    // A previously completed story must not retain its old last line after a
+    // VS Code hot reload adds a continuation.
+    restarted.router.pushReplacementNamed('ending');
+    await tester.runAsync(() async {
+      for (var attempt = 0; attempt < 500; attempt++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        await tester.pump();
+        restarted.update(0);
+        if (restarted.router.currentRoute.name == 'ending' &&
+            restarted.router.currentRoute.children.isNotEmpty) {
+          break;
+        }
+      }
+    });
+    final reassembling = tester.binding.reassembleApplication();
+    // Reassembly waits for a warm-up frame; the test clock must pump it.
+    await tester.pump();
+    await reassembling;
+    await tester.pump();
+    final reloaded = tester
+        .state<GameWidgetState<OldTestamentGame>>(
+          find.byType(GameWidget<OldTestamentGame>),
+        )
+        .currentGame;
+    expect(reloaded, isNot(same(restarted)));
+    await tester.runAsync(() async {
+      for (var attempt = 0; attempt < 500; attempt++) {
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        await tester.pump();
+        if (reloaded.isLoaded && reloaded.cutscene.isMounted) break;
+      }
+    });
+    reloaded.pauseEngine();
+    await tester.pumpAndSettle();
+    expect(reloaded.router.currentRoute.name, 'intro');
+    expect(reloaded.cutscene.isFinished, isFalse);
+    expect(reloaded.cutscene.textIndex, 0);
+    expect(tester.takeException(), isNull);
     await tester.binding.handlePopRoute(); // Android/system back also exits.
     await tester.pumpAndSettle();
     expect(find.text('Play'), findsOneWidget);

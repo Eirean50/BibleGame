@@ -25,6 +25,22 @@ class _StoryScreenState extends State<StoryScreen> with WidgetsBindingObserver {
   }
 
   @override
+  void reassemble() {
+    super.reassemble();
+    // Hot reload preserves State fields and Flame components, including the
+    // constructor-captured script and an already-finished ending route.
+    // Recreate Genesis so newly appended dialogue is actually reachable.
+    if (_game.isLoaded &&
+        const [
+          'intro',
+          'eden',
+          'ending',
+        ].contains(_game.router.currentRoute.name)) {
+      _replay();
+    }
+  }
+
+  @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);

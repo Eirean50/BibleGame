@@ -164,6 +164,11 @@ void main() {
       expect(eden.backdrop.currentScene, i);
       if (eden.isTyping) eden.advance();
       game.update(GardenStoryBackdrop.transitionDuration);
+      if (i == 13) {
+        game.update(GardenStoryBackdrop.forbiddenReturnHoldDuration);
+        expect(eden.textIndex, i + 4);
+        continue;
+      }
       if (i == 1) game.update(GardenStoryBackdrop.treeHoldDuration);
       if (i >= 3) {
         game.update(10);
@@ -260,10 +265,20 @@ void main() {
       if (line == 2) {
         game.update(20);
       }
+      if (line == 16) {
+        game.update(
+          GardenStoryBackdrop.transitionDuration +
+              GardenStoryBackdrop.forbiddenReturnHoldDuration,
+        );
+        expect(scene.textIndex, 17);
+        continue;
+      }
       if (line >= 4) {
         game.update(10);
         game.update(10);
       }
+      // The serpent line starts typing only after the timed entrance finishes.
+      if (scene.isTyping) scene.advance();
       if (line < edenScript.length - 1) scene.advance();
     }
     game.update(20);

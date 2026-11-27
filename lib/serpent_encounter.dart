@@ -6,11 +6,14 @@ import 'package:flutter/painting.dart';
 import 'creation_backdrop.dart';
 import 'forbidden_tree_backdrop.dart';
 import 'keyed_art.dart';
+import 'forbidden_fruit_actors.dart';
 
 /// A timed field walk, five-second tree insert, and approach to the serpent.
 class SerpentEncounter extends PositionComponent {
-  SerpentEncounter({bool alreadyArrived = false})
-    : _elapsed = alreadyArrived ? arrivalTime : 0;
+  SerpentEncounter({bool alreadyArrived = false, bool storyComplete = false})
+    : _elapsed = alreadyArrived ? arrivalTime : 0,
+      fruitActors = ForbiddenFruitActors(completed: storyComplete, characterPaint: evePaint);
+  final ForbiddenFruitActors fruitActors;
 
   static const firstWalkDuration = 4.0;
   static const fadeDuration = 1.0;
@@ -46,6 +49,8 @@ class SerpentEncounter extends PositionComponent {
   Sprite? _eveSheet;
   Sprite? _snakeSheet;
   Sprite? _tree;
+  Sprite? _pickedSheet;
+  Sprite? _pickedTree;
   final _eveFrames = <Sprite>[];
   final _snakeFrames = <Sprite>[];
   // Keep extracted character pixels solid while leaving the outside clear.
@@ -129,16 +134,18 @@ class SerpentEncounter extends PositionComponent {
 
   @override
   Future<void> onLoad() async {
-    await addAll([field, forbidden]);
+    await addAll([field, forbidden, fruitActors]);
     for (final layer in field.layers.values) {
       layer.opacity = 1;
     }
     _treeSheet = await loadKeyedArt('tree.png');
+    _pickedSheet = await loadKeyedArt('tree-picked.png');
     // Use the repaired opaque character cutouts directly; never color-key them.
     _eveSheet = await loadKeyedArt('evewalk-solid.png');
     _snakeSheet = await loadKeyedArt('snake.png');
     // Isolate the central tree, leaving the sheet's corner plants outside.
     _tree = _crop(_treeSheet!, const Rect.fromLTWH(620, 40, 1530, 1496));
+    _pickedTree = _crop(_pickedSheet!, const Rect.fromLTWH(620, 40, 1530, 1496));
     for (final crop in _eveCrops) {
       _eveFrames.add(_crop(_eveSheet!, crop));
     }
@@ -153,6 +160,8 @@ class SerpentEncounter extends PositionComponent {
     field.size.setFrom(size);
     forbidden.size.setFrom(size);
     field.updateTree(dt);
+    fruitActors.size.setFrom(size);
+    fruitActors.updateTree(dt);
   }
 
   @override
@@ -180,6 +189,16 @@ class SerpentEncounter extends PositionComponent {
         size: Vector2(treeRect.width, treeRect.height),
         overridePaint: Paint()..filterQuality = FilterQuality.none,
       );
+      if (fruitActors.hasFruit) {
+        // Replace just the fruit and halo area; all other tree pixels stay put.
+        canvas.save();
+        canvas.clipPath(Path()..addOval(Rect.fromLTWH(
+          treeRect.left + treeWidth * 0.61, treeRect.top + treeHeight * 0.23,
+          treeWidth * 0.29, treeHeight * 0.28)));
+        _pickedTree!.render(canvas, position: Vector2(treeRect.left, treeRect.top),
+          size: Vector2(treeWidth, treeHeight), overridePaint: evePaint);
+        canvas.restore();
+      }
       final snakeHeight = treeHeight * 0.28;
       canvas.save();
       // Face Eve, with the supplied branch resting against the tree's left fork.
@@ -198,13 +217,18 @@ class SerpentEncounter extends PositionComponent {
     }
     final eveHeight = math.min(size.y * 0.34, size.x * 0.27);
     final crop = _eveCrops[eveFrame];
-    _eveFrames[eveFrame].render(
+    if (fruitActors.hasFruit) {
+      fruitActors.size.setFrom(size);
+      fruitActors.render(canvas);
+    } else {
+      _eveFrames[eveFrame].render(
       canvas,
       position: Vector2(size.x * eveProgress, ground),
       size: Vector2(eveHeight * crop.width / crop.height, eveHeight),
       anchor: Anchor.bottomCenter,
       overridePaint: evePaint,
     );
+    }
     final opacity = forbiddenOpacity;
     if (opacity > 0) {
       canvas.saveLayer(
@@ -243,6 +267,8 @@ class SerpentEncounter extends PositionComponent {
     _treeSheet?.image.dispose();
     _eveSheet?.image.dispose();
     _snakeSheet?.image.dispose();
+    _pickedSheet?.image.dispose();
+    _pickedSheet = _pickedTree = null;
     _treeSheet = _eveSheet = _snakeSheet = _tree = null;
     _eveFrames.clear();
     _snakeFrames.clear();

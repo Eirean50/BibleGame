@@ -47,6 +47,8 @@ class OldTestamentGame extends FlameGame with HasKeyboardHandlerComponents {
       'prepared/adamandeveakbay.png',
       'prepared/evewalk-solid.png',
       'prepared/tree.png',
+      'prepared/tree-picked.png',
+      'prepared/aadameveforb.png',
       'prepared/snake.png',
       'kingdom.png',
       'heaven.png',
