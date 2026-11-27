@@ -1,0 +1,4 @@
+Built-in image_gen tool. Output: jesusangry-solid.png.
+Runtime selects the fifth pose in the top row for Genesis 3:9.
+
+Edit target: supplied Jesus sprite sheet. Background extraction only: remove the entire baked-in dark gray checkerboard and replace it with actual alpha transparency. Preserve every one of the twelve original full-body pixel art poses, faces, hands, clothing and positions exactly, same 16:9 two-row six-column layout and spacing. In particular preserve the TOP ROW FIFTH pose: Jesus standing upright, mouth open speaking, one arm lowered and his other hand pointing right at waist/chest height. Do not redraw or change this pose or expression. All hair, skin, white robes, red sash and sandals must remain fully opaque. No holes, checker remnants, halo, new shadows or text. Preserve original sheet layout for precise game sprite cropping.

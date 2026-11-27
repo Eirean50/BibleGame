@@ -23,6 +23,47 @@ class _Sound extends SwordSound {
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
+  test(
+    'Awakening crossfades once and remains selected after pause and ending',
+    () {
+      final peaceful = _Sound();
+      final serpent = _Sound();
+      final awakening = _Sound();
+      final music = GenesisMusic(
+        sound: peaceful,
+        serpentSound: serpent,
+        awakeningSound: awakening,
+      );
+      music.start();
+      music.useSerpentTheme();
+      music.update(2.5);
+      expect(awakening.plays, 0);
+      music.useAwakeningTheme();
+      music.useAwakeningTheme();
+      expect(awakening.plays, 1);
+      music.update(0.4);
+      expect(serpent.gain, closeTo(0.5, 0.001));
+      expect(awakening.gain, closeTo(0.5, 0.001));
+      music.pause();
+      music.update(10);
+      expect(awakening.gain, closeTo(0.5, 0.001));
+      music.resume();
+      music.update(0.4);
+      expect(serpent.gain, 0);
+      expect(awakening.gain, 1);
+      music.start();
+      music.useSerpentTheme();
+      music.pause();
+      music.resume();
+      expect(peaceful.plays, 1);
+      expect(serpent.plays, 2);
+      expect(awakening.plays, 3);
+      music.dispose();
+      music.dispose();
+      expect(awakening.disposals, 1);
+    },
+  );
+
   test('Serpent music fades in once and survives pause and final route', () {
     final peaceful = _Sound();
     final serpent = _Sound();
@@ -90,6 +131,7 @@ void main() {
   for (final track in {
     GenesisMusic.asset: 32.0,
     GenesisMusic.serpentAsset: 31.7,
+    GenesisMusic.awakeningAsset: 23.7,
   }.entries) {
     test('${track.key} is audible without clipping or a seam click', () async {
       final data = await rootBundle.load('assets/${track.key}');

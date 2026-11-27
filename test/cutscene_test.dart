@@ -48,9 +48,14 @@ void main() {
   ) async {
     final soundtrack = _MusicSound();
     final serpentTrack = _MusicSound();
+    final awakeningTrack = _MusicSound();
     final game = await mountGame(
       tester,
-      music: GenesisMusic(sound: soundtrack, serpentSound: serpentTrack),
+      music: GenesisMusic(
+        sound: soundtrack,
+        serpentSound: serpentTrack,
+        awakeningSound: awakeningTrack,
+      ),
     );
     expect(soundtrack.plays, 1);
     final scene = game.cutscene;
@@ -134,6 +139,7 @@ void main() {
     expect(game.router.currentRoute.name, 'eden');
     expect(soundtrack.plays, 1); // Keep the same music through scene changes.
     expect(serpentTrack.plays, 0);
+    expect(awakeningTrack.plays, 0);
     final eden = game.eden;
     expect(eden.textIndex, 0);
     expect(eden.backdrop.garden.cameraZoom, 3);
@@ -192,6 +198,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(game.router.currentRoute.name, 'ending');
     expect(serpentTrack.plays, 1);
+    expect(awakeningTrack.plays, 1);
     expect(soundtrack.plays, 1);
     expect(game.router.stack, hasLength(1));
     expect(game.descendants().whereType<Level1>(), isEmpty);
@@ -202,6 +209,7 @@ void main() {
     await disposeGame(tester);
     expect(soundtrack.disposals, 1);
     expect(serpentTrack.disposals, 1);
+    expect(awakeningTrack.disposals, 1);
   });
 
   testWidgets('Eden keeps camera progress and fits dialogue after resizing', (

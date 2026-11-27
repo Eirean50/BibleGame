@@ -28,6 +28,15 @@ const gardenStoryScript = [
   '[3:2] The woman said to the serpent, "We may eat of the fruit of the trees in the garden;',
   '[3:3] but God said, \'You shall not eat of the fruit of the tree that is in the middle of the garden, nor shall you touch it, or you shall die.\'"',
   '[3:4] But the serpent said to the woman, "You will not die;',
+  '[3:5] for God knows that when you eat of it your eyes will be opened, and you will be like God, knowing good and evil."',
+  '[3:6] So when the woman saw that the tree was good for food, and that it was a delight to the eyes, and that the tree was to be desired to make one wise, she took of its fruit and ate; and she also gave some to her husband, who was with her, and he ate.',
+  '[3:7] Then the eyes of both were opened, and they knew that they were naked; and they sewed fig leaves together and made loincloths for themselves.',
+  '[3:8] They heard the sound of the LORD God walking in the garden at the time of the evening breeze, and the man and his wife hid themselves from the presence of the LORD God among the trees of the garden.',
+  '[3:9] But the LORD God called to the man, and said to him, "Where are you?"',
+  '[3:10] He said, "I heard the sound of you in the garden, and I was afraid, because I was naked; and I hid myself."',
+  '[3:11] He said, "Who told you that you were naked? Have you eaten from the tree of which I commanded you not to eat?"',
+  '[3:12] The man said, "The woman whom you gave to be with me, she gave me fruit from the tree, and I ate."',
+  '[3:13] Then the LORD God said to the woman, "What is this that you have done?" The woman said, "The serpent tricked me, and I ate."',
 ];
 
 class GardenStory extends NarratedScene {
@@ -38,6 +47,7 @@ class GardenStory extends NarratedScene {
     this.gardenStartIndex = 0,
     bool revealGarden = false,
     this.onSerpentScene,
+    this.onAwakening,
   }) : audio = audio ?? GenesisAudio(),
        backdrop = GardenStoryBackdrop(revealGarden: revealGarden),
        super(
@@ -49,7 +59,11 @@ class GardenStory extends NarratedScene {
 
   final GenesisAudio audio;
   final VoidCallback? onSerpentScene;
+  final VoidCallback? onAwakening;
+  bool _awakeningMusicStarted = false;
   bool _serpentMusicStarted = false;
+  bool _fruitChimePlayed = false;
+  bool _footstepsPlayed = false;
   final int gardenStartIndex;
   @override
   final GardenStoryBackdrop backdrop;
@@ -85,6 +99,12 @@ class GardenStory extends NarratedScene {
     13 => 'RETURNING TO THE GARDEN...',
     3 => 'A DEEP SLEEP...',
     4 => 'EVE IS RISING...',
+    15 => 'EVE TAKES THE FRUIT...',
+    16 => 'THEY EAT THE FRUIT...',
+    17 => 'THEIR EYES WERE OPENED...',
+    18 => 'THEY HIDE AMONG THE TREES...',
+    19 => 'THEY COME OUT FROM HIDING...',
+    22 || 23 => 'THEY ANSWER...',
     _ => 'REVEALING THE SCENE...',
   };
 
@@ -93,11 +113,37 @@ class GardenStory extends NarratedScene {
     final couldAdvance = canAdvance;
     final wasVisible = isNarrationVisible;
     super.updateTree(dt);
+    if (!_fruitChimePlayed && backdrop.fruitShineStarted) {
+      _fruitChimePlayed = true;
+      audio.revealMoment();
+    }
     if (backdrop.forbiddenReturnReady) super.advance();
+    final confrontation = backdrop.encounter.confrontation;
+    if (!_footstepsPlayed && confrontation.footstepsStarted) {
+      _footstepsPlayed = true;
+      audio.walkingMoment();
+    }
+    if (backdrop.currentScene == 19 && !isTyping) {
+      confrontation.answerCall();
+    }
+    if (backdrop.currentScene == 23 &&
+        dialogue.currentChar >= script[textIndex].indexOf('The woman said')) {
+      confrontation.accuseSerpent();
+    }
+    if (!_awakeningMusicStarted &&
+        backdrop.encounter.fruitActors.bothHaveEaten) {
+      _awakeningMusicStarted = true;
+      onAwakening?.call();
+    }
     if (wasVisible != isNarrationVisible) refreshSceneLayout();
     backdrop.encounter.isSpeaking =
-        (backdrop.currentScene == 11 || backdrop.currentScene == 14) &&
+        (backdrop.currentScene == 11 ||
+            backdrop.currentScene == 14 ||
+            backdrop.currentScene == 15) &&
         isTyping;
+    if (backdrop.currentScene == 15 && !isTyping) {
+      backdrop.encounter.fruitActors.holdFruit();
+    }
     if (!_serpentMusicStarted &&
         backdrop.currentScene == 11 &&
         backdrop.encounter.snakeHasAppeared) {
@@ -149,6 +195,7 @@ class GardenStoryBackdrop extends PositionComponent {
   bool get forbiddenReturnReady =>
       _scene == 13 &&
       _elapsed >= transitionDuration + forbiddenReturnHoldDuration;
+  bool get fruitShineStarted => _scene == 13 && _elapsed >= transitionDuration;
   bool get canLeaveScene =>
       _elapsed >= transitionDuration + _holdDuration &&
       switch (_scene) {
@@ -157,6 +204,10 @@ class GardenStoryBackdrop extends PositionComponent {
         5 => couple.isAnimationFinished,
         8 => commandGarden.isAnimationFinished,
         11 => encounter.hasArrived,
+        15 => encounter.fruitActors.holdingFinished,
+        16 => encounter.fruitActors.eatingFinished,
+        17 => encounter.fruitActors.awarenessFinished,
+        >= 18 => encounter.confrontation.canLeaveScene,
         _ => true,
       };
   double get treeOpacity => _weights[1];
@@ -166,7 +217,7 @@ class GardenStoryBackdrop extends PositionComponent {
     5 || 6 || 7 => 4,
     8 || 9 => 5,
     10 || 13 => 1,
-    11 || 12 || 14 => 6,
+    11 || 12 || >= 14 => 6,
     _ => throw ArgumentError.value(scene, 'scene'),
   };
 
@@ -190,6 +241,9 @@ class GardenStoryBackdrop extends PositionComponent {
     _scene = index;
     _elapsed = sameLayer ? transitionDuration : 0;
     if (index == 4) sleeping.figures.revealEve();
+    if (index == 16) encounter.fruitActors.beginEating();
+    if (index == 17) encounter.fruitActors.beginAwareness();
+    if (index >= 18) encounter.confrontation.showScene(index);
   }
 
   @override
@@ -200,7 +254,7 @@ class GardenStoryBackdrop extends PositionComponent {
     if (_scene == 3 || _scene == 4) sleeping.updateTree(dt);
     if (_scene >= 5 && _scene <= 7) couple.updateTree(dt);
     if (_scene == 8 || _scene == 9) commandGarden.updateTree(dt);
-    if (_scene == 11 || _scene == 12 || _scene == 14) encounter.updateTree(dt);
+    if (_scene == 11 || _scene == 12 || _scene >= 14) encounter.updateTree(dt);
   }
 
   @override
@@ -214,6 +268,11 @@ class GardenStoryBackdrop extends PositionComponent {
     encounter.size.setFrom(size);
     // Only visible scenes advance, so Adam begins when the naming line appears.
     _elapsed = math.min(transitionDuration + _holdDuration, _elapsed + dt);
+    final shineTime = math.max(0.0, _elapsed - transitionDuration);
+    tree.shineIntensity = _scene == 13
+        ? math.min(1.0, shineTime / 0.4) *
+              (0.65 + 0.35 * math.sin(shineTime * 4))
+        : 0;
     final t = (_elapsed / transitionDuration).clamp(0.0, 1.0);
     final eased = t * t * (3 - 2 * t);
     _weights = List.generate(

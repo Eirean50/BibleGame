@@ -46,7 +46,7 @@ Future<void> capturePreview(
 }
 
 void main() {
-  testWidgets('Screen taps continue from Genesis 3:1 through 3:4', (
+  testWidgets('Screen taps continue from Genesis 3:1 through 3:13', (
     tester,
   ) async {
     tester.view.devicePixelRatio = 1;
@@ -74,7 +74,7 @@ void main() {
     game.update(15);
     expect(story.dialogue.text, startsWith('[3:1]'));
     expect(story.canAdvance, isTrue);
-    for (var line = 11; line <= 14; line++) {
+    for (var line = 11; line < gardenStoryScript.length; line++) {
       expect(story.textIndex, line);
       expect(story.dialogue.text, startsWith('[3:${line - 10}]'));
       if (line == 13) {
@@ -97,7 +97,16 @@ void main() {
       }
       // Exercise the actual pointer dispatcher, both on the scene and panel.
       if (story.isTyping) await tester.tapAt(const Offset(480, 470));
-      game.update(3);
+      game.update(
+        0,
+      ); // Start taking the fruit after the serpent finishes speaking.
+      game.update(
+        line == 16
+            ? 12
+            : line == 18
+            ? 5
+            : 3,
+      );
       await tester.tapAt(
         line.isEven ? const Offset(480, 470) : const Offset(100, 100),
       );
@@ -165,11 +174,14 @@ void main() {
       }
       var finishes = 0;
       var serpentCues = 0;
+      var awakeningCues = 0;
       final cue = _CueSound();
+      final footsteps = _CueSound();
       final story = GardenStory(
         onSerpentScene: () => serpentCues++,
+        onAwakening: () => awakeningCues++,
         onFinished: () => finishes++,
-        audio: GenesisAudio(reveal: cue),
+        audio: GenesisAudio(reveal: cue, footsteps: footsteps),
       );
       final game = FlameGame(children: [story]);
       final key = GlobalKey();
@@ -210,9 +222,15 @@ void main() {
           expect(story.backdrop.encounter.isWalking, isFalse);
           expect(story.backdrop.encounter.eveProgress, closeTo(0.5, 0.001));
           expect(story.backdrop.encounter.forbiddenOpacity, 0);
-          expect(story.backdrop.encounter.isSpeaking, line == 14);
+          expect(story.backdrop.encounter.isSpeaking, line == 14 || line == 15);
           expect(serpentCues, 1); // No replay of the entrance or soundtrack.
           if (line == 12) expect(story.backdrop.isTransitioning, isFalse);
+        }
+        if (line == 23) {
+          expect(story.backdrop.encounter.confrontation.jesusShocked, isTrue);
+          expect(story.backdrop.encounter.confrontation.evePointing, isFalse);
+          game.update(0.5);
+          expect(story.backdrop.encounter.confrontation.evePointing, isFalse);
         }
         if (story.isTyping) story.advance();
         if (const [1, 2, 3, 5, 8, 10, 13, 14].contains(line)) {
@@ -233,6 +251,11 @@ void main() {
             ); // Hold the fully visible tree briefly.
             game.update(GardenStoryBackdrop.treeHoldDuration);
             expect(story.backdrop.treeOpacity, 1);
+            if (line == 13) {
+              expect(story.backdrop.tree.shineIntensity, greaterThan(0));
+              expect(cue.plays, 2); // Rib chime, then the fruit's chime once.
+              await capturePreview(tester, game, key, 'genesis-fruit-shine');
+            }
           }
         }
         if (line == 2) {
@@ -343,6 +366,107 @@ void main() {
           game.update(1);
           expect(encounter.isSpeaking, isFalse);
           expect(encounter.eveProgress, closeTo(0.5, 0.001));
+        }
+        final fruit = story.backdrop.encounter.fruitActors;
+        if (line == 15) {
+          expect(fruit.hasFruit, isFalse);
+          game.update(0);
+          expect(fruit.hasFruit, isTrue);
+          story.advance();
+          expect(story.textIndex, 15);
+          game.update(1.2);
+          expect(fruit.holdingFinished, isTrue);
+          expect(cue.plays, 2);
+        }
+        if (line == 16) {
+          tester.view.physicalSize = const Size(960, 540);
+          await tester.pumpAndSettle();
+          expect(fruit.adamIsWalking, isTrue);
+          expect(fruit.bothHaveEaten, isFalse);
+          expect(awakeningCues, 0);
+          game.update(0.25);
+          expect(fruit.adamWalkFrame, 2);
+          await capturePreview(tester, game, key, 'genesis-adam-walking');
+          for (var stage = 0; stage < 5; stage++) {
+            expect(fruit.eatingStage, stage);
+            story.advance();
+            expect(story.textIndex, 16); // Do not skip the bite or handoff.
+            await capturePreview(tester, game, key, 'genesis-eating-$stage');
+            expect(awakeningCues, 0);
+            game.update(stage == 0 ? 1.75 : 2);
+          }
+          expect(fruit.adamIsWalking, isFalse);
+          expect(fruit.bothHaveEaten, isTrue);
+          expect(awakeningCues, 1);
+          expect(fruit.eatingFinished, isFalse);
+          story.advance();
+          expect(story.textIndex, 16);
+          game.update(0.2);
+          await capturePreview(tester, game, key, 'genesis-awakening-recoil');
+          game.update(1.8);
+          expect(fruit.eatingFinished, isTrue);
+        }
+        if (line == 17) {
+          story.advance();
+          expect(finishes, 0);
+          game.update(3);
+          expect(fruit.awarenessFinished, isTrue);
+          expect(awakeningCues, 1);
+        }
+        final confrontation = story.backdrop.encounter.confrontation;
+        if (line == 18) {
+          tester.view.physicalSize = const Size(960, 540);
+          await tester.pumpAndSettle();
+          expect(confrontation.active, isTrue);
+          expect(confrontation.coupleHidden, isFalse);
+          expect(footsteps.plays, 0);
+          game.update(0.65);
+          await capturePreview(tester, game, key, 'genesis-running-to-hide');
+          story.advance();
+          expect(story.textIndex, 18);
+          game.update(0.65);
+          expect(confrontation.coupleHidden, isTrue);
+          expect(confrontation.jesusWalking, isTrue);
+          expect(footsteps.plays, 1);
+          game.update(1.6);
+          await capturePreview(tester, game, key, 'genesis-jesus-walking');
+          game.update(2.1);
+          expect(confrontation.jesusWalking, isFalse);
+          expect(story.canAdvance, isTrue);
+          expect(footsteps.plays, 1);
+        }
+        if (line == 19) {
+          expect(confrontation.coupleHidden, isTrue);
+          story.advance();
+          expect(story.textIndex, 19);
+          game.update(0); // Complete the call before they come out.
+          expect(confrontation.coupleReturning, isTrue);
+          game.update(0.9);
+          await capturePreview(tester, game, key, 'genesis-coming-out');
+          story.advance();
+          expect(story.textIndex, 19);
+          game.update(0.9);
+          expect(confrontation.coupleReturning, isFalse);
+          expect(confrontation.coupleHidden, isFalse);
+          expect(story.canAdvance, isTrue);
+        }
+        if (line == 20 || line == 21) game.update(1);
+        if (line == 22) {
+          expect(confrontation.adamPointing, isTrue);
+          expect(confrontation.evePointing, isFalse);
+          story.advance();
+          expect(story.textIndex, 22);
+          game.update(1.2);
+        }
+        if (line == 23) {
+          game.update(0);
+          expect(confrontation.adamPointing, isFalse);
+          expect(confrontation.evePointing, isTrue);
+          story.advance();
+          expect(finishes, 0);
+          game.update(1.2);
+          expect(story.canFinish, isTrue);
+          expect(footsteps.plays, 1);
         }
         for (final size in [
           const Size(960, 540),

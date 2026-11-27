@@ -7,13 +7,16 @@ import 'sword_sound.dart';
 /// Scene-owned reveal cues. Continuous water/wind/nature loops are disabled;
 /// the game-owned musical score supplies the background audio.
 class GenesisAudio extends Component {
-  GenesisAudio({SwordSound? reveal})
-    : _reveal = reveal ?? SwordSound(asset: revealAsset, volume: 0.55);
+  GenesisAudio({SwordSound? reveal, SwordSound? footsteps})
+    : _reveal = reveal ?? SwordSound(asset: revealAsset, volume: 0.55),
+      _footsteps = footsteps ?? SwordSound(asset: footstepsAsset, volume: 0.32);
 
   static const revealAsset = 'audio/genesis_reveal.wav';
-  static const assets = [revealAsset];
+  static const footstepsAsset = 'audio/genesis_footsteps.wav';
+  static const assets = [revealAsset, footstepsAsset];
 
   final SwordSound _reveal;
+  final SwordSound _footsteps;
   int _lastStep = -1;
   bool _suspended = true;
   bool _active = false;
@@ -39,11 +42,16 @@ class GenesisAudio extends Component {
     if (_disposed) return;
     _suspended = true;
     unawaited(_reveal.stop());
+    unawaited(_footsteps.stop());
   }
 
   /// A single creation chime for a visual miracle in the active scene.
   void revealMoment() {
     if (_active && !_disposed && !_suspended) unawaited(_reveal.play());
+  }
+
+  void walkingMoment() {
+    if (_active && !_disposed && !_suspended) unawaited(_footsteps.play());
   }
 
   void resumeAudio() {
@@ -56,6 +64,7 @@ class GenesisAudio extends Component {
     _disposed = true;
     _active = false;
     unawaited(_reveal.dispose());
+    unawaited(_footsteps.dispose());
   }
 
   @override

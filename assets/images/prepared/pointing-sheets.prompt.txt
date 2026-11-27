@@ -1,0 +1,7 @@
+Built-in image_gen tool. Original adampoint.png and evepoint.png preserved.
+
+adampoint-solid.png:
+Background extraction edit of this Adam pointing game sprite sheet. Remove only the baked-in gray checkerboard and replace with genuine alpha transparency. Preserve all twelve Adam poses exactly: faces, terrified expressions, pointing fingers, positions, sizes, brown hair, tan skin and green leaf skirt. Keep the exact 16:9 two-row six-column layout and spacing. All character interiors, including hair, eyes and shadows, must remain opaque with no holes. No new elements, no halos, no outside shadows, no text. Especially preserve the TOP ROW FIFTH frightened pointing pose and the TOP ROW SECOND frightened raised-hand pose.
+
+evepoint-solid.png:
+Background extraction edit of this Eve pointing game sprite sheet. Remove only the baked-in gray checkerboard and replace with genuine alpha transparency. Preserve all twelve Eve poses exactly: faces, frightened expressions, pointing fingers, positions, sizes, dark hair, red flower, tan skin, green leaf top and skirt. Keep exact 16:9 two-row six-column layout and spacing. All character interiors, including hair, eyes, clothing and shadows must stay opaque without holes. No new elements, no halo, no outside shadows or text. Especially preserve TOP ROW THIRD pointing diagonally upward and TOP ROW SECOND frightened hand-at-throat pose.

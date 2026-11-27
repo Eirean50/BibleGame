@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'dart:ui' as ui;
+
 import 'package:flame/components.dart';
 import 'package:flutter/painting.dart';
 
@@ -27,13 +28,26 @@ class ForbiddenTreeBackdrop extends PositionComponent {
       final source = Alignment.center.inscribe(fitted.source, tree.src);
       final center = Offset(
         (tree.image.width * 1750 / 2752 - source.left) / source.width * size.x,
-        (tree.image.height * 570 / 1536 - source.top) / source.height * size.y);
+        (tree.image.height * 570 / 1536 - source.top) / source.height * size.y,
+      );
       final radius = size.x / source.width * tree.image.width * 110 / 2752;
-      canvas.drawCircle(center, radius, Paint()..shader = ui.Gradient.radial(
-        center, radius, [Color.fromRGBO(255, 251, 202, shineIntensity),
-          Color.fromRGBO(255, 199, 64, shineIntensity * 0.7), const Color(0x00FFC740)],
-        [0, 0.35, 1]));
-      final rays = Paint()..color = Color.fromRGBO(255, 255, 220, shineIntensity)
+      canvas.drawCircle(
+        center,
+        radius,
+        Paint()
+          ..shader = ui.Gradient.radial(
+            center,
+            radius,
+            [
+              Color.fromRGBO(255, 251, 202, shineIntensity),
+              Color.fromRGBO(255, 199, 64, shineIntensity * 0.7),
+              const Color(0x00FFC740),
+            ],
+            [0, 0.35, 1],
+          ),
+      );
+      final rays = Paint()
+        ..color = Color.fromRGBO(255, 255, 220, shineIntensity)
         ..strokeWidth = math.max(1, radius * 0.06);
       for (var i = 0; i < 4; i++) {
         final angle = i * math.pi / 4;

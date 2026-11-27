@@ -14,8 +14,12 @@ const List<String> edenScript = [
 ];
 
 class EdenCutscene extends GardenStory {
-  EdenCutscene({required super.onFinished, super.audio, super.onSerpentScene})
-    : super(storyScript: edenScript, gardenStartIndex: 3, revealGarden: true);
+  EdenCutscene({
+    required super.onFinished,
+    super.audio,
+    super.onSerpentScene,
+    super.onAwakening,
+  }) : super(storyScript: edenScript, gardenStartIndex: 3, revealGarden: true);
 
   @override
   bool get canAdvance =>
@@ -29,7 +33,7 @@ class EdenCutscene extends GardenStory {
       textIndex <= 3 ? 'REVEALING THE GARDEN...' : super.waitingHint;
 }
 
-/// Hold Eve beside the serpent after the current final dialogue.
+/// Hold the confrontation after Eve's answer in Genesis 3:13.
 class GardenEnding extends PositionComponent {
   GardenEnding({GenesisAudio? audio}) : audio = audio ?? GenesisAudio();
 

@@ -1,0 +1,7 @@
+Built-in image_gen tool; original user sheets preserved.
+
+adamwalking-solid.png:
+Edit target: the supplied Adam walking sprite sheet. Remove the entire baked-in dark gray checkerboard background, replacing it with actual alpha transparency. Preserve all twelve Adam poses, their exact positions, relative sizes, spacing, pixel art character design, brown hair and skin and green leaf clothing. Keep every character completely opaque, including dark hair, eyes, skin and clothing; no transparent holes or checkerboard visible inside the bodies. No new objects, no shadows outside the characters, no text. Keep the original wide 16:9 two-row six-column sheet layout exactly.
+
+evetalking-solid.png:
+Edit target: supplied Eve talking pixel sprite sheet. Remove the entire baked-in dark gray checkerboard and replace it with real alpha transparency. Preserve exactly all twelve poses, expressions, positions, scale, brown hair and skin and green leaf top and skirt, same wide 16:9 two-row six-column layout. Every character pixel inside hair, skin, eyes, clothing must stay fully opaque; no transparent holes or checker remnants. Do not redraw facial expressions or add elements, shadows or text.

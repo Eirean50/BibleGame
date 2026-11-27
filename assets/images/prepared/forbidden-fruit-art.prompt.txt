@@ -1,0 +1,12 @@
+Built-in image_gen edits. Runtime uses the generated alpha directly, with solid
+character rendering. Original supplied assets remain unchanged.
+
+Input: assets/images/aadameveforb.png
+Output: assets/images/prepared/aadameveforb.png
+Prompt:
+Use case: background-extraction. Game sprite sheet edit. Remove only the gray checkerboard from this exact supplied aadameveforb.png sprite sheet, replacing it with actual alpha transparency. Preserve every Adam and Eve figure, all poses, positions, proportions, pixel style, faces, leaf clothes, hair, hands, fruit and golden fruit highlights. Keep the exact layout, original aspect ratio and all frames including the paired poses. Hair, skin, leaves and fruit must be fully opaque and complete with clean outlines and no transparent holes. No checkerboard, floor, shadows, labels, redesign, added poses or extra objects. Background outside silhouettes transparent, characters solid. Maintain each sprite's original location so source-coordinate cropping remains valid.
+
+Input: assets/images/prepared/tree.png
+Output: assets/images/prepared/tree-picked.png
+Prompt:
+Use case: precise-object-edit. Edit this exact transparent pixel art tree sprite. Remove ONLY the single brightly glowing golden forbidden fruit and its surrounding gold sparks/light halo in the upper-right central canopy (around 64 percent across and 37 percent down the full image). Restore the small area behind that fruit with matching dark leaves and the existing branch, so that fruit is visibly absent. Preserve every other red fruit, all foliage, all branches, roots, corner plants, original scale, position, canvas proportions, pixel art palette and outlines unchanged. Preserve true transparent background and all alpha outside the tree. No new objects, no scene background, no text, no reframing, no redesign. This must align precisely with the original sprite so swapping images makes only that one glowing fruit disappear.

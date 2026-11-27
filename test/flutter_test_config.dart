@@ -60,8 +60,10 @@ Future<void> testExecutable(FutureOr<void> Function() testMain) async {
       'genesis_wind.wav',
       'genesis_nature.wav',
       'genesis_reveal.wav',
+      'genesis_footsteps.wav',
       'genesis_music.wav',
       'genesis_serpent_music.wav',
+      'genesis_awakening_music.wav',
     ]) {
       AudioCache.instance.loadedFiles['audio/$name'] = kIsWeb
           ? Uri.parse('assets/assets/audio/$name')

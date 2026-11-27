@@ -49,6 +49,13 @@ class OldTestamentGame extends FlameGame with HasKeyboardHandlerComponents {
       'prepared/tree.png',
       'prepared/tree-picked.png',
       'prepared/aadameveforb.png',
+      'prepared/adamwalking-solid.png',
+      'prepared/evetalking-solid.png',
+      'prepared/jesuswalking-solid.png',
+      'prepared/jesusshocked-solid.png',
+      'prepared/jesusangry-solid.png',
+      'prepared/adampoint-solid.png',
+      'prepared/evepoint-solid.png',
       'prepared/snake.png',
       'kingdom.png',
       'heaven.png',
@@ -87,6 +94,7 @@ class OldTestamentGame extends FlameGame with HasKeyboardHandlerComponents {
           genesisMusic.start();
           return eden = EdenCutscene(
             onSerpentScene: genesisMusic.useSerpentTheme,
+            onAwakening: genesisMusic.useAwakeningTheme,
             onFinished: () => router.pushReplacementNamed('ending'),
           );
         }, maintainState: false),

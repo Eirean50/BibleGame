@@ -25,8 +25,9 @@ class _Sound extends SwordSound {
 
 class _Sounds {
   final reveal = _Sound();
-  List<_Sound> get all => [reveal];
-  GenesisAudio audio() => GenesisAudio(reveal: reveal);
+  final footsteps = _Sound();
+  List<_Sound> get all => [reveal, footsteps];
+  GenesisAudio audio() => GenesisAudio(reveal: reveal, footsteps: footsteps);
 }
 
 // Keep the real application's audio lifecycle, without playing its war intro.
@@ -124,11 +125,14 @@ void main() {
         final game = _GenesisGame(scene);
         await _mountScene(tester, game);
         expect(sounds.reveal.plays, 0);
+        audio.walkingMoment();
+        expect(sounds.footsteps.plays, 1);
         game.lifecycleStateChange(AppLifecycleState.inactive);
         expect(sounds.reveal.stops, 1);
         game.lifecycleStateChange(AppLifecycleState.resumed);
         game.pauseEngine();
         expect(sounds.reveal.plays, 0);
+        expect(sounds.footsteps.plays, 1); // Never replay footsteps on resume.
         await tester.pumpWidget(const SizedBox());
         await tester.pump(const Duration(milliseconds: 200));
         expect(sounds.all.every((sound) => sound.disposals == 1), isTrue);
